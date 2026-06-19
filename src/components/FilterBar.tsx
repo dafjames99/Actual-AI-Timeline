@@ -12,7 +12,7 @@ interface FilterBarProps {
  */
 export default function FilterBar({ visible, onToggle }: FilterBarProps) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 px-4 py-3 sm:flex-wrap sm:px-6">
+    <div className="flex items-center gap-2 overflow-x-auto border-b border-hairline px-4 py-3 sm:flex-wrap sm:px-6">
       {STRAND_LIST.map((strand) => {
         const on = visible.has(strand.key);
         return (
@@ -21,15 +21,15 @@ export default function FilterBar({ visible, onToggle }: FilterBarProps) {
             type="button"
             onClick={() => onToggle(strand.key)}
             aria-pressed={on}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-label text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors ${
               on
-                ? "border-slate-300 text-slate-700"
-                : "border-slate-200 text-slate-300 line-through"
+                ? "border-edge text-ink-soft"
+                : "border-edge-soft text-faint line-through"
             }`}
           >
             <span
               className="inline-block h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: on ? strand.colour : "#cbd5e1" }}
+              style={{ backgroundColor: on ? strand.colour : "var(--color-dot-off)" }}
             />
             {strand.label}
           </button>
