@@ -25,6 +25,8 @@ interface TimelineProps {
   visibleStrands: Set<StrandKey>;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  matchedIds: Set<string>; // ids matching the current search/tag filter
+  filterActive: boolean; // whether any search/tag filter is applied
 }
 
 interface HoverState {
@@ -38,7 +40,14 @@ interface HoverState {
  * so toggling a strand off collapses its lane and reclaims the space. Nodes are
  * clickable (open detail panel) and hoverable (lightweight tooltip).
  */
-export default function Timeline({ events, visibleStrands, selectedId, onSelect }: TimelineProps) {
+export default function Timeline({
+  events,
+  visibleStrands,
+  selectedId,
+  onSelect,
+  matchedIds,
+  filterActive,
+}: TimelineProps) {
   const [hover, setHover] = useState<HoverState | null>(null);
 
   const lanes = STRAND_LIST.filter((s) => visibleStrands.has(s.key));
@@ -134,10 +143,12 @@ export default function Timeline({ events, visibleStrands, selectedId, onSelect 
             const cx = x(new Date(e.date));
             const cy = laneCenterY(laneIndex.get(e.strand)!);
             const selected = e.id === selectedId;
+            const dimmed = filterActive && !matchedIds.has(e.id);
             return (
               <g
                 key={e.id}
-                className="cursor-pointer"
+                className="cursor-pointer transition-opacity"
+                opacity={dimmed ? 0.15 : 1}
                 onClick={() => onSelect(e.id)}
                 onMouseEnter={() => setHover({ event: e, x: cx, y: cy })}
                 onMouseLeave={() => setHover((h) => (h?.event.id === e.id ? null : h))}

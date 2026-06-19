@@ -5,6 +5,8 @@ import { STRANDS } from "../data/strands";
 interface EventPanelProps {
   event: TimelineEvent | null;
   related: TimelineEvent[]; // resolved related events (existing ids only)
+  activeTags: string[]; // tags currently used as filters
+  onToggleTag: (tag: string) => void;
   onClose: () => void;
   onSelect: (id: string) => void;
 }
@@ -14,7 +16,14 @@ interface EventPanelProps {
  * on both phone and desktop. Shows the full event record plus clickable related
  * events.
  */
-export default function EventPanel({ event, related, onClose, onSelect }: EventPanelProps) {
+export default function EventPanel({
+  event,
+  related,
+  activeTags,
+  onToggleTag,
+  onClose,
+  onSelect,
+}: EventPanelProps) {
   return (
     <AnimatePresence>
       {event && (
@@ -75,11 +84,24 @@ export default function EventPanel({ event, related, onClose, onSelect }: EventP
             {event.tags.length > 0 && (
               <Section title="Tags">
                 <div className="flex flex-wrap gap-1.5">
-                  {event.tags.map((t) => (
-                    <span key={t} className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-500">
-                      #{t}
-                    </span>
-                  ))}
+                  {event.tags.map((t) => {
+                    const on = activeTags.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => onToggleTag(t)}
+                        aria-pressed={on}
+                        className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
+                          on
+                            ? "border-slate-900 bg-slate-900 text-white"
+                            : "border-slate-200 text-slate-500 hover:border-slate-400"
+                        }`}
+                      >
+                        #{t}
+                      </button>
+                    );
+                  })}
                 </div>
               </Section>
             )}
