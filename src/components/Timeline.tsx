@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { scaleTime } from "d3-scale";
 import { timeYear } from "d3-time";
 import { timeFormat } from "d3-time-format";
 import type { StrandKey, TimelineEvent } from "../data/types";
 import { STRANDS, STRAND_LIST } from "../data/strands";
+import { ERAS, eraOf } from "../data/eras";
 import {
   AXIS_HEIGHT,
   LANE_HEIGHT,
@@ -15,18 +16,35 @@ import {
   laneCenterY,
 } from "./layout";
 
+export type TimelineMode = "date" | "even";
+
 const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+const EVEN_SPACING = 64; // px between events in equal-spacing mode
 const TOUCH_R = 18; // invisible hit-area radius for comfortable touch targets
 const formatYear = timeFormat("%Y");
 const formatNodeDate = timeFormat("%b %Y");
+
+interface Tick {
+  x: number;
+  label: string;
+}
+interface Band {
+  key: string;
+  label: string;
+  left: number;
+  right: number;
+}
 
 interface TimelineProps {
   events: TimelineEvent[];
   visibleStrands: Set<StrandKey>;
   selectedId: string | null;
   onSelect: (id: string) => void;
-  matchedIds: Set<string>; // ids matching the current search/tag filter
-  filterActive: boolean; // whether any search/tag filter is applied
+  matchedIds: Set<string>;
+  filterActive: boolean;
+  mode: TimelineMode;
+  centerId: string | null; // event/era target to scroll into view
+  centerKey: number; // bump to re-trigger scroll even for the same id
 }
 
 interface HoverState {
@@ -35,11 +53,6 @@ interface HoverState {
   y: number;
 }
 
-/**
- * Stage 2: the interactive timeline. Lanes are assigned by visible-strand order
- * so toggling a strand off collapses its lane and reclaims the space. Nodes are
- * clickable (open detail panel) and hoverable (lightweight tooltip).
- */
 export default function Timeline({
   events,
   visibleStrands,
@@ -47,8 +60,12 @@ export default function Timeline({
   onSelect,
   matchedIds,
   filterActive,
+  mode,
+  centerId,
+  centerKey,
 }: TimelineProps) {
   const [hover, setHover] = useState<HoverState | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const lanes = STRAND_LIST.filter((s) => visibleStrands.has(s.key));
   const laneIndex = useMemo(() => {
@@ -59,29 +76,76 @@ export default function Timeline({
 
   const shownEvents = events.filter((e) => visibleStrands.has(e.strand));
 
-  const { innerWidth, x, ticks } = useMemo(() => {
-    // Domain is fixed to the full dataset so the x-axis doesn't jump when lanes
-    // toggle — only the visible nodes change.
+  const { innerWidth, xOf, ticks, bands } = useMemo(() => {
     const dates = events.map((e) => new Date(e.date).getTime());
     const pad = YEAR_MS / 3;
     const d0 = new Date(Math.min(...dates) - pad);
     const d1 = new Date(Math.max(...dates) + pad);
 
-    const years = (d1.getTime() - d0.getTime()) / YEAR_MS;
-    const innerWidth = Math.max(
-      MIN_INNER_WIDTH,
-      Math.round(years * PX_PER_YEAR) + PADDING_LEFT + PADDING_RIGHT,
-    );
-    const x = scaleTime().domain([d0, d1]).range([PADDING_LEFT, innerWidth - PADDING_RIGHT]);
-    return { innerWidth, x, ticks: x.ticks(timeYear) };
-  }, [events]);
+    let innerWidth: number;
+    let xOf: (e: TimelineEvent) => number;
+    let ticks: Tick[];
+
+    if (mode === "date") {
+      const years = (d1.getTime() - d0.getTime()) / YEAR_MS;
+      innerWidth = Math.max(
+        MIN_INNER_WIDTH,
+        Math.round(years * PX_PER_YEAR) + PADDING_LEFT + PADDING_RIGHT,
+      );
+      const x = scaleTime().domain([d0, d1]).range([PADDING_LEFT, innerWidth - PADDING_RIGHT]);
+      xOf = (e) => x(new Date(e.date));
+      ticks = x.ticks(timeYear).map((t) => ({ x: x(t), label: formatYear(t) }));
+    } else {
+      const n = events.length;
+      innerWidth = Math.max(MIN_INNER_WIDTH, (n - 1) * EVEN_SPACING + PADDING_LEFT + PADDING_RIGHT);
+      const step = n > 1 ? (innerWidth - PADDING_LEFT - PADDING_RIGHT) / (n - 1) : 0;
+      const idx = new Map(events.map((e, i) => [e.id, i]));
+      xOf = (e) => PADDING_LEFT + (idx.get(e.id) ?? 0) * step;
+      // Year label at the first event of each year.
+      ticks = [];
+      let lastYear = "";
+      for (const e of events) {
+        const y = e.date.slice(0, 4);
+        if (y !== lastYear) {
+          ticks.push({ x: xOf(e), label: y });
+          lastYear = y;
+        }
+      }
+    }
+
+    // Era bands: extent of each era's events, tiled at midpoint boundaries.
+    const present = ERAS.map((era) => {
+      const evs = events.filter((e) => eraOf(e.date).key === era.key);
+      if (evs.length === 0) return null;
+      const xs = evs.map(xOf);
+      return { era, min: Math.min(...xs), max: Math.max(...xs) };
+    }).filter((p): p is { era: (typeof ERAS)[number]; min: number; max: number } => p !== null);
+
+    const bands: Band[] = present.map((p, i) => ({
+      key: p.era.key,
+      label: p.era.label,
+      left: i === 0 ? 0 : (present[i - 1].max + p.min) / 2,
+      right: i === present.length - 1 ? innerWidth : (p.max + present[i + 1].min) / 2,
+    }));
+
+    return { innerWidth, xOf, ticks, bands };
+  }, [events, mode]);
 
   const height = AXIS_HEIGHT + Math.max(1, lanes.length) * LANE_HEIGHT;
 
+  // Scroll a target event/era into the centre when requested (tour, era jump,
+  // deep-link). centerKey forces re-runs even when centerId is unchanged.
+  useEffect(() => {
+    if (!centerId) return;
+    const e = events.find((x) => x.id === centerId);
+    const el = scrollRef.current;
+    if (!e || !el) return;
+    el.scrollTo({ left: xOf(e) - el.clientWidth / 2, behavior: "smooth" });
+  }, [centerId, centerKey, xOf, events]);
+
   return (
     <div className="flex border border-slate-200">
-      {/* Fixed strand-label gutter — only visible strands, aligned to lanes.
-          Narrow with short labels on phones, wider with full labels on sm+. */}
+      {/* Fixed strand-label gutter — narrow + short labels on phones. */}
       <div className="w-24 shrink-0 border-r border-slate-200 bg-slate-50 sm:w-44">
         <div style={{ height: AXIS_HEIGHT }} />
         {lanes.map((strand) => (
@@ -101,25 +165,43 @@ export default function Timeline({
       </div>
 
       {/* Scrollable, date-accurate chart. */}
-      <div className="relative overflow-x-auto">
+      <div ref={scrollRef} className="relative overflow-x-auto">
         <svg width={innerWidth} height={height} role="img" aria-label="AI progress timeline">
+          {/* Era bands (background) + labels */}
+          {bands.map((b, i) => (
+            <g key={b.key}>
+              <rect
+                x={b.left}
+                y={AXIS_HEIGHT}
+                width={Math.max(0, b.right - b.left)}
+                height={height - AXIS_HEIGHT}
+                fill={i % 2 === 0 ? "#f8fafc" : "#ffffff"}
+              />
+              <text
+                x={(b.left + b.right) / 2}
+                y={14}
+                textAnchor="middle"
+                className="fill-slate-400 text-[10px] font-semibold uppercase tracking-wide"
+              >
+                {b.label}
+              </text>
+            </g>
+          ))}
+
           {/* Year gridlines + labels */}
-          {ticks.map((t) => {
-            const tx = x(t);
-            return (
-              <g key={+t}>
-                <line x1={tx} x2={tx} y1={AXIS_HEIGHT} y2={height} stroke="#e2e8f0" strokeWidth={1} />
-                <text
-                  x={tx}
-                  y={AXIS_HEIGHT - 16}
-                  textAnchor="middle"
-                  className="fill-slate-400 font-mono text-xs"
-                >
-                  {formatYear(t)}
-                </text>
-              </g>
-            );
-          })}
+          {ticks.map((t, i) => (
+            <g key={`${t.label}-${i}`}>
+              <line x1={t.x} x2={t.x} y1={AXIS_HEIGHT} y2={height} stroke="#e2e8f0" strokeWidth={1} />
+              <text
+                x={t.x}
+                y={AXIS_HEIGHT - 8}
+                textAnchor="middle"
+                className="fill-slate-400 font-mono text-xs"
+              >
+                {t.label}
+              </text>
+            </g>
+          ))}
 
           {/* Lane baselines */}
           {lanes.map((strand) => {
@@ -140,7 +222,7 @@ export default function Timeline({
           {/* Event nodes */}
           {shownEvents.map((e) => {
             const strand = STRANDS[e.strand];
-            const cx = x(new Date(e.date));
+            const cx = xOf(e);
             const cy = laneCenterY(laneIndex.get(e.strand)!);
             const selected = e.id === selectedId;
             const dimmed = filterActive && !matchedIds.has(e.id);
@@ -162,7 +244,6 @@ export default function Timeline({
                   }
                 }}
               >
-                {/* Transparent oversized hit area for comfortable touch targets. */}
                 <circle cx={cx} cy={cy} r={TOUCH_R} fill="transparent" />
                 <circle
                   cx={cx}
@@ -177,7 +258,6 @@ export default function Timeline({
             );
           })}
 
-          {/* Hover tooltip (title + date only) — rendered in SVG to track scroll. */}
           {hover && <NodeTooltip hover={hover} />}
         </svg>
       </div>
