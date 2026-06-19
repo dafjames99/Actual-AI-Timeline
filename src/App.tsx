@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, MotionConfig } from "framer-motion";
 import { getAllEvents } from "./data/getAllEvents";
 import { STRAND_KEYS } from "./data/strands";
 import { ERAS } from "./data/eras";
@@ -65,13 +65,20 @@ export default function App() {
   const tourStep = tourIndex !== null ? tourSteps[tourIndex] : null;
   const tourEvent = tourStep ? byId.get(tourStep.id)! : null;
 
-  // Drive selection + scroll from the active tour step.
-  useEffect(() => {
-    if (tourStep) {
-      select(tourStep.id);
-      focus(tourStep.id);
-    }
-  }, [tourStep, select, focus]);
+  // Go to a tour step (or exit if out of range): select + scroll to its event.
+  const goStep = useCallback(
+    (i: number) => {
+      if (i < 0) return;
+      if (i >= tourSteps.length) {
+        setTourIndex(null);
+        return;
+      }
+      setTourIndex(i);
+      select(tourSteps[i].id);
+      focus(tourSteps[i].id);
+    },
+    [tourSteps, select, focus],
+  );
 
   const toggleStrand = (key: StrandKey) =>
     setVisible((prev) => {
@@ -98,12 +105,31 @@ export default function App() {
     if (first) focus(first.id);
   };
 
-  const exitTour = () => setTourIndex(null);
-  const nextStep = () =>
-    setTourIndex((i) => (i === null ? null : i + 1 >= tourSteps.length ? null : i + 1));
-  const prevStep = () => setTourIndex((i) => (i === null ? null : Math.max(0, i - 1)));
+  const exitTour = useCallback(() => setTourIndex(null), []);
+  const nextStep = useCallback(() => {
+    if (tourIndex !== null) goStep(tourIndex + 1);
+  }, [tourIndex, goStep]);
+  const prevStep = useCallback(() => {
+    if (tourIndex !== null) goStep(tourIndex - 1);
+  }, [tourIndex, goStep]);
+
+  // Global keyboard shortcuts: Esc closes panel / exits tour; arrows step the tour.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        select(null);
+        exitTour();
+      } else if (tourIndex !== null) {
+        if (e.key === "ArrowRight") nextStep();
+        else if (e.key === "ArrowLeft") prevStep();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tourIndex, select, exitTour, nextStep, prevStep]);
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen bg-white text-slate-900">
       <header className="border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
         <h1 className="text-lg font-bold sm:text-xl">AI Progress Timeline</h1>
@@ -127,7 +153,7 @@ export default function App() {
         mode={mode}
         onMode={setMode}
         onJumpEra={jumpEra}
-        onStartTour={() => setTourIndex(0)}
+        onStartTour={() => goStep(0)}
         tourAvailable={tourSteps.length > 0}
       />
 
@@ -175,5 +201,6 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }

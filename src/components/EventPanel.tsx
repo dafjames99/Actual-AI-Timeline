@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { TimelineEvent } from "../data/types";
 import { STRANDS } from "../data/strands";
@@ -24,6 +25,31 @@ export default function EventPanel({
   onClose,
   onSelect,
 }: EventPanelProps) {
+  const ref = useRef<HTMLElement>(null);
+
+  // Move focus into the panel when it opens (accessibility).
+  useEffect(() => {
+    if (event) ref.current?.focus();
+  }, [event?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Minimal focus trap: keep Tab cycling within the open panel.
+  const trapTab = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab" || !ref.current) return;
+    const items = ref.current.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (items.length === 0) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
     <AnimatePresence>
       {event && (
@@ -37,12 +63,16 @@ export default function EventPanel({
           />
           <motion.aside
             key={event.id}
-            className="fixed inset-x-0 bottom-0 z-20 max-h-[75vh] overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[28rem] sm:max-h-none sm:rounded-none sm:rounded-l-2xl"
+            ref={ref}
+            tabIndex={-1}
+            onKeyDown={trapTab}
+            className="fixed inset-x-0 bottom-0 z-20 max-h-[75vh] overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl outline-none sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[28rem] sm:max-h-none sm:rounded-none sm:rounded-l-2xl"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
             role="dialog"
+            aria-modal="true"
             aria-label={event.title}
           >
             <div className="flex items-start justify-between gap-4">
