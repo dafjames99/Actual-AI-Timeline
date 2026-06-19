@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/* Strand colours mirrored from src/data/strands.ts for use in CSS / SVG. */
+:root {
+  --strand-research: #3b82f6;
+  --strand-labs: #8b5cf6;
+  --strand-products: #f59e0b;
+  --strand-oss: #16a34a;
+  --strand-governance: #64748b;
+  --strand-corporate: #b91c1c;
+  --strand-infrastructure: #14b8a6;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Visible keyboard focus ring (mouse clicks don't trigger :focus-visible). */
+:focus-visible {
+  outline: 2px solid #0f172a;
+  outline-offset: 2px;
+}
