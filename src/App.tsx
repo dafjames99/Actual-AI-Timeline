@@ -1,15 +1,40 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getAllEvents } from "./data/getAllEvents";
-import { STRAND_LIST } from "./data/strands";
-import type { TimelineEvent } from "./data/types";
+import { STRAND_KEYS } from "./data/strands";
+import type { StrandKey, TimelineEvent } from "./data/types";
 import Timeline from "./components/Timeline";
+import FilterBar from "./components/FilterBar";
+import EventPanel from "./components/EventPanel";
+import { useSelectedEvent } from "./hooks/useSelectedEvent";
 
 export default function App() {
   const [events, setEvents] = useState<TimelineEvent[] | null>(null);
+  const [visible, setVisible] = useState<Set<StrandKey>>(() => new Set(STRAND_KEYS));
+  const { selectedId, select } = useSelectedEvent();
 
   useEffect(() => {
     getAllEvents().then(setEvents);
   }, []);
+
+  const byId = useMemo(() => {
+    const m = new Map<string, TimelineEvent>();
+    events?.forEach((e) => m.set(e.id, e));
+    return m;
+  }, [events]);
+
+  const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
+  const related = useMemo(
+    () => (selected?.related_ids ?? []).map((id) => byId.get(id)).filter((e): e is TimelineEvent => !!e),
+    [selected, byId],
+  );
+
+  const toggleStrand = (key: StrandKey) =>
+    setVisible((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
@@ -20,29 +45,27 @@ export default function App() {
         </p>
       </header>
 
-      {/* Filter-bar / legend shell — inert in Stage 1; toggles wire up in Stage 2. */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-6 py-3">
-        {STRAND_LIST.map((strand) => (
-          <span
-            key={strand.key}
-            className="flex items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600"
-          >
-            <span
-              className="inline-block h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: strand.colour }}
-            />
-            {strand.label}
-          </span>
-        ))}
-      </div>
+      <FilterBar visible={visible} onToggle={toggleStrand} />
 
       <main className="p-6">
         {!events ? (
           <p className="text-slate-500">Loading events…</p>
         ) : (
-          <Timeline events={events} />
+          <Timeline
+            events={events}
+            visibleStrands={visible}
+            selectedId={selectedId}
+            onSelect={select}
+          />
         )}
       </main>
+
+      <EventPanel
+        event={selected}
+        related={related}
+        onClose={() => select(null)}
+        onSelect={select}
+      />
     </div>
   );
 }
