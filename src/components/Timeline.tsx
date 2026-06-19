@@ -16,6 +16,7 @@ import {
 } from "./layout";
 
 const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+const TOUCH_R = 18; // invisible hit-area radius for comfortable touch targets
 const formatYear = timeFormat("%Y");
 const formatNodeDate = timeFormat("%b %Y");
 
@@ -70,20 +71,22 @@ export default function Timeline({ events, visibleStrands, selectedId, onSelect 
 
   return (
     <div className="flex border border-slate-200">
-      {/* Fixed strand-label gutter — only visible strands, aligned to lanes. */}
-      <div className="shrink-0 border-r border-slate-200 bg-slate-50" style={{ width: 184 }}>
+      {/* Fixed strand-label gutter — only visible strands, aligned to lanes.
+          Narrow with short labels on phones, wider with full labels on sm+. */}
+      <div className="w-24 shrink-0 border-r border-slate-200 bg-slate-50 sm:w-44">
         <div style={{ height: AXIS_HEIGHT }} />
         {lanes.map((strand) => (
           <div
             key={strand.key}
-            className="flex items-center gap-2 px-3 text-sm text-slate-700"
+            className="flex items-center gap-1.5 px-2 text-xs text-slate-700 sm:gap-2 sm:px-3 sm:text-sm"
             style={{ height: LANE_HEIGHT }}
           >
             <span
               className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: strand.colour }}
             />
-            <span className="leading-tight">{strand.label}</span>
+            <span className="leading-tight sm:hidden">{strand.short}</span>
+            <span className="hidden leading-tight sm:inline">{strand.label}</span>
           </div>
         ))}
       </div>
@@ -132,15 +135,8 @@ export default function Timeline({ events, visibleStrands, selectedId, onSelect 
             const cy = laneCenterY(laneIndex.get(e.strand)!);
             const selected = e.id === selectedId;
             return (
-              <circle
+              <g
                 key={e.id}
-                cx={cx}
-                cy={cy}
-                r={selected ? NODE_R + 3 : NODE_R}
-                fill={strand.colour}
-                stroke={selected ? strand.colour : "white"}
-                strokeWidth={selected ? 3 : 1.5}
-                strokeOpacity={selected ? 0.4 : 1}
                 className="cursor-pointer"
                 onClick={() => onSelect(e.id)}
                 onMouseEnter={() => setHover({ event: e, x: cx, y: cy })}
@@ -154,7 +150,19 @@ export default function Timeline({ events, visibleStrands, selectedId, onSelect 
                     onSelect(e.id);
                   }
                 }}
-              />
+              >
+                {/* Transparent oversized hit area for comfortable touch targets. */}
+                <circle cx={cx} cy={cy} r={TOUCH_R} fill="transparent" />
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={selected ? NODE_R + 3 : NODE_R}
+                  fill={strand.colour}
+                  stroke={selected ? strand.colour : "white"}
+                  strokeWidth={selected ? 3 : 1.5}
+                  strokeOpacity={selected ? 0.4 : 1}
+                />
+              </g>
             );
           })}
 

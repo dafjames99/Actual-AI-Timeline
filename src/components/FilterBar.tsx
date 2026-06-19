@@ -12,7 +12,7 @@ interface FilterBarProps {
  */
 export default function FilterBar({ visible, onToggle }: FilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-6 py-3">
+    <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 px-4 py-3 sm:flex-wrap sm:px-6">
       {STRAND_LIST.map((strand) => {
         const on = visible.has(strand.key);
         return (
@@ -21,7 +21,7 @@ export default function FilterBar({ visible, onToggle }: FilterBarProps) {
             type="button"
             onClick={() => onToggle(strand.key)}
             aria-pressed={on}
-            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
               on
                 ? "border-slate-300 text-slate-700"
                 : "border-slate-200 text-slate-300 line-through"

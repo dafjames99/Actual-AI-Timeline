@@ -14,6 +14,16 @@ plan; it does not restate the PRD, only the engineering approach and sequencing.
 | Animation | **framer-motion** for panels/tooltips (DOM); D3 transitions inside SVG | PRD §6 |
 | Deploy | **GitHub Pages** (static SPA via GitHub Actions) | PRD §8 ("Deployment: GitHub Pages, static export") |
 
+### Design philosophy: mobile-first
+
+The UI is built **mobile-first**: base styles target a narrow phone screen and
+larger layouts are layered on with `sm:`/`md:` breakpoints, never the reverse.
+Touch targets, type scale, spacing, and the detail panel (a bottom sheet on
+phones, a side panel on desktop) all assume phone first. Responsive polish was
+deliberately pulled forward out of Stage 5 — every stage from Stage 2 onward is
+expected to look and feel right on a phone before it's considered done. The live
+GitHub Pages URL (viewed on a phone) is the working visual test for this.
+
 ### The one architectural rule
 
 Everything loads through `src/data/getAllEvents.ts` (and siblings like
@@ -100,8 +110,10 @@ index.html
   auto-opening its panel.
 
 ### Stage 5 — Polish + deploy
-- Responsive layout; keyboard accessibility (focusable nodes, ARIA, panel focus
-  trap); <2s load target; perf pass.
+- Responsive layout is handled mobile-first from Stage 2 onward (see "Design
+  philosophy" above), so this stage focuses on the remaining polish: keyboard
+  accessibility (focusable nodes, ARIA, panel focus trap); <2s load target;
+  perf pass.
 - **Deploy to GitHub Pages:** set Vite `base` to the repo path (e.g.
   `/Actual-AI-Timeline/`); add a GitHub Actions workflow
   (`actions/upload-pages-artifact` + `actions/deploy-pages`) that builds on push

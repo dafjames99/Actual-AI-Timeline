@@ -38,16 +38,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
-      <header className="border-b border-slate-200 px-6 py-4">
-        <h1 className="text-xl font-bold">AI Progress Timeline</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
+      <header className="border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
+        <h1 className="text-lg font-bold sm:text-xl">AI Progress Timeline</h1>
+        <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
           A multi-strand view of how the field has unfolded.
         </p>
       </header>
 
       <FilterBar visible={visible} onToggle={toggleStrand} />
 
-      <main className="p-6">
+      <main className="p-3 sm:p-6">
         {!events ? (
           <p className="text-slate-500">Loading events…</p>
         ) : (
