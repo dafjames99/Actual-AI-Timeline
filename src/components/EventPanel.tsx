@@ -66,7 +66,7 @@ export default function EventPanel({
             ref={ref}
             tabIndex={-1}
             onKeyDown={trapTab}
-            className="fixed inset-x-0 bottom-0 z-20 max-h-[75vh] overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl outline-none sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[28rem] sm:max-h-none sm:rounded-none sm:rounded-l-2xl"
+            className="fixed inset-x-0 bottom-0 z-20 max-h-[75vh] overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl outline-none sm:inset-y-0 sm:left-auto sm:right-0 sm:w-md sm:max-h-none sm:rounded-none sm:rounded-l-2xl"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
@@ -122,11 +122,10 @@ export default function EventPanel({
                         type="button"
                         onClick={() => onToggleTag(t)}
                         aria-pressed={on}
-                        className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
-                          on
+                        className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${on
                             ? "border-slate-900 bg-slate-900 text-white"
                             : "border-slate-200 text-slate-500 hover:border-slate-400"
-                        }`}
+                          }`}
                       >
                         #{t}
                       </button>
