@@ -13,3 +13,9 @@ npm-debug.log*
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# TypeScript build cache (generated artifact, not source)
+*.tsbuildinfo
+
+# Claude Code local config
+.claude/

@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["claude/prd-implementation-plan-vtkbdx"]
+    branches: ["main"]
   workflow_dispatch:
 
 # Permissions required for the GitHub Pages deployment.
