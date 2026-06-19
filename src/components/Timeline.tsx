@@ -144,22 +144,22 @@ export default function Timeline({
   }, [centerId, centerKey, xOf, events]);
 
   return (
-    <div className="flex border border-slate-200">
+    <div className="flex border border-ink bg-panel">
       {/* Fixed strand-label gutter — narrow + short labels on phones. */}
-      <div className="w-24 shrink-0 border-r border-slate-200 bg-slate-50 sm:w-44">
+      <div className="w-24 shrink-0 border-r border-ink sm:w-44">
         <div style={{ height: AXIS_HEIGHT }} />
         {lanes.map((strand) => (
           <div
             key={strand.key}
-            className="flex items-center gap-1.5 px-2 text-xs text-slate-700 sm:gap-2 sm:px-3 sm:text-sm"
+            className="flex items-center gap-1.5 px-2 font-label text-[10px] font-semibold uppercase leading-tight tracking-[0.12em] text-ink-soft sm:gap-2 sm:px-3 sm:text-[10.5px]"
             style={{ height: LANE_HEIGHT }}
           >
             <span
               className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: strand.colour }}
             />
-            <span className="leading-tight sm:hidden">{strand.short}</span>
-            <span className="hidden leading-tight sm:inline">{strand.label}</span>
+            <span className="sm:hidden">{strand.short}</span>
+            <span className="hidden sm:inline">{strand.label}</span>
           </div>
         ))}
       </div>
@@ -175,13 +175,13 @@ export default function Timeline({
                 y={AXIS_HEIGHT}
                 width={Math.max(0, b.right - b.left)}
                 height={height - AXIS_HEIGHT}
-                fill={i % 2 === 0 ? "#f8fafc" : "#ffffff"}
+                className={i % 2 === 0 ? "fill-wash" : "fill-wash-alt"}
               />
               <text
                 x={(b.left + b.right) / 2}
                 y={14}
                 textAnchor="middle"
-                className="fill-slate-400 text-[10px] font-semibold uppercase tracking-wide"
+                className="fill-caption font-label text-[10px] font-semibold uppercase tracking-[0.18em]"
               >
                 {b.label}
               </text>
@@ -191,12 +191,19 @@ export default function Timeline({
           {/* Year gridlines + labels */}
           {ticks.map((t, i) => (
             <g key={`${t.label}-${i}`}>
-              <line x1={t.x} x2={t.x} y1={AXIS_HEIGHT} y2={height} stroke="#e2e8f0" strokeWidth={1} />
+              <line
+                x1={t.x}
+                x2={t.x}
+                y1={AXIS_HEIGHT}
+                y2={height}
+                className="stroke-line"
+                strokeWidth={1}
+              />
               <text
                 x={t.x}
                 y={AXIS_HEIGHT - 8}
                 textAnchor="middle"
-                className="fill-slate-400 font-mono text-xs"
+                className="fill-muted font-mono text-xs"
               >
                 {t.label}
               </text>
@@ -213,7 +220,7 @@ export default function Timeline({
                 x2={innerWidth - PADDING_RIGHT}
                 y1={ly}
                 y2={ly}
-                stroke="#f1f5f9"
+                className="stroke-line"
                 strokeWidth={2}
               />
             );
@@ -250,7 +257,7 @@ export default function Timeline({
                   cy={cy}
                   r={selected ? NODE_R + 3 : NODE_R}
                   fill={strand.colour}
-                  stroke={selected ? strand.colour : "white"}
+                  style={{ stroke: selected ? strand.colour : "var(--color-panel)" }}
                   strokeWidth={selected ? 3 : 1.5}
                   strokeOpacity={selected ? 0.4 : 1}
                 />
@@ -272,8 +279,13 @@ function NodeTooltip({ hover }: { hover: HoverState }) {
   const top = hover.y - NODE_R - 30;
   return (
     <g pointerEvents="none">
-      <rect x={left} y={top} width={width} height={22} rx={4} fill="#0f172a" />
-      <text x={hover.x} y={top + 15} textAnchor="middle" className="fill-white text-xs">
+      <rect x={left} y={top} width={width} height={22} rx={4} className="fill-ink" />
+      <text
+        x={hover.x}
+        y={top + 15}
+        textAnchor="middle"
+        className="fill-paper font-mono text-[11.5px]"
+      >
         {label}
       </text>
     </g>

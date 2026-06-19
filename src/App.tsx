@@ -130,10 +130,15 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="min-h-screen bg-white text-slate-900">
-      <header className="border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
-        <h1 className="text-lg font-bold sm:text-xl">AI Progress Timeline</h1>
-        <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
+    <div className="min-h-screen bg-paper text-ink">
+      <header className="border-b-2 border-ink px-4 py-6 sm:px-6 sm:py-8">
+        <p className="font-label text-[11px] font-semibold uppercase tracking-[0.16em] text-eyebrow">
+          A Field Guide
+        </p>
+        <h1 className="mt-3 font-display text-4xl font-semibold leading-[1.1] tracking-[-0.022em] text-ink sm:text-6xl">
+          AI Progress Timeline
+        </h1>
+        <p className="mt-3 max-w-xl font-body text-lg italic leading-snug text-secondary sm:text-xl">
           A multi-strand view of how the field has unfolded.
         </p>
       </header>
@@ -159,7 +164,7 @@ export default function App() {
 
       <main className="p-3 sm:p-6">
         {!events ? (
-          <p className="text-slate-500">Loading events…</p>
+          <p className="text-muted">Loading events…</p>
         ) : (
           <Timeline
             events={events}

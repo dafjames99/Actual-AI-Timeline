@@ -1,23 +1,60 @@
 @import "tailwindcss";
 
-/* Strand colours mirrored from src/data/strands.ts for use in CSS / SVG. */
+/* Broadsheet editorial type system. Tailwind v4 turns these @theme font vars
+   into font-display / font-body / font-label / font-mono utilities. */
+@theme {
+  --font-display: "Newsreader", Georgia, serif;
+  --font-body: "Source Serif 4", Georgia, serif;
+  --font-label: "Archivo", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Broadsheet "ink-on-paper" palette. Tailwind v4 turns each --color-* into
+     bg-/text-/border-/fill-/stroke- utilities (with opacity modifiers, e.g.
+     bg-ink/25). Surfaces, rules, text, and chrome accents all live here so the
+     hex values are defined once. */
+  --color-paper: #f4efe4; /* page background                         */
+  --color-panel: #fbf8f1; /* raised surfaces: sheet, chart, segments */
+  --color-wash: #efe8d6; /* even era band + hover wash               */
+  --color-wash-alt: #f8f3e8; /* odd era band                         */
+
+  --color-ink: #211c15; /* primary text + strong rules               */
+  --color-ink-soft: #3f3a31; /* gutter labels, ink hover surface     */
+  --color-secondary: #5f574a; /* secondary text                      */
+  --color-muted: #94897a; /* meta / muted text                       */
+  --color-label: #a89d88; /* section + control labels                */
+  --color-eyebrow: #8a7f6c; /* masthead eyebrow                      */
+  --color-faint: #bcb09a; /* disabled / struck-through chip text     */
+  --color-caption: #aa9f8a; /* era band caption (SVG)                */
+
+  --color-hairline: #e4dccb; /* section dividers                     */
+  --color-line: #e6ddcb; /* year grid + lane baselines (SVG)         */
+  --color-edge: #d3c8b2; /* chip / input borders                    */
+  --color-edge-soft: #e8e0cf; /* off-state chip border               */
+  --color-dot-off: #cdc0a8; /* hidden-strand dot                     */
+
+  --color-tour-muted: #bdb09a; /* tour bar meta (on ink)             */
+  --color-tour-note: #ddd2bd; /* tour note (on ink)                  */
+}
+
+/* Strand colours mirrored from src/data/strands.ts for use in CSS / SVG.
+   Desaturated "ink-on-paper" Broadsheet palette. */
 :root {
-  --strand-research: #3b82f6;
-  --strand-labs: #8b5cf6;
-  --strand-products: #f59e0b;
-  --strand-oss: #16a34a;
-  --strand-governance: #64748b;
-  --strand-corporate: #b91c1c;
-  --strand-infrastructure: #14b8a6;
+  --strand-research: #4f6a91;
+  --strand-labs: #715f8c;
+  --strand-products: #b07f3c;
+  --strand-oss: #5b7a4f;
+  --strand-governance: #6c6b6f;
+  --strand-corporate: #9c534a;
+  --strand-infrastructure: #4c8079;
 }
 
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
 }
 
 /* Visible keyboard focus ring (mouse clicks don't trigger :focus-visible). */
 :focus-visible {
-  outline: 2px solid #0f172a;
+  outline: 2px solid var(--color-ink);
   outline-offset: 2px;
 }
