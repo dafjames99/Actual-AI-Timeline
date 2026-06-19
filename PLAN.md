@@ -124,3 +124,31 @@ index.html
 **MVP = Stages 0–2.** Stages 3–5 are strongly desirable for v1 but can slip
 (per PRD §8). Each stage boundary is a commit on
 `claude/prd-implementation-plan-vtkbdx`.
+
+---
+
+## Next steps
+
+All PRD phases (0–5) are implemented, live on GitHub Pages, and auto-deploying.
+Remaining work, in no fixed order:
+
+- **Data seed expansion** — grow from the current ~11 seed events toward the
+  PRD's 80–120 target (2006→present). The interactions (era density, Even
+  spacing, search/tag filtering) only really come alive with a fuller dataset.
+  Each event is a single sourced Markdown file; prioritise breadth and
+  geographic/organisational diversity (e.g. Chinese labs, EU research) per
+  PRD §9 Q5. Expand the guided-tour script (`tour.ts`) as coverage grows.
+- **Design experiments** (open-ended — scope to be refined) — visual and
+  interaction iterations now that the feature set is in place. Candidate
+  directions to explore later: node/label styling and density handling for
+  clustered periods, lane/era visual treatment, typography and colour
+  refinement, animation feel, optional auto-play for the guided tour, and
+  overall "ink-on-grid" aesthetic polish (PRD §7). Deliberately left loose;
+  we'll define concrete experiments before acting.
+
+### Smaller follow-ups / known caveats
+- Bundle is ~149 KB gzipped (framer-motion dominates) — fine for the <2s goal
+  but a candidate for trimming.
+- Verification so far is build + lint + type-check; no automated tests yet.
+- `getAllEvents` renders Markdown bodies but there's no `@tailwindcss/typography`
+  plugin, so prose styling on the optional body is minimal.
