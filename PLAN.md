@@ -12,7 +12,7 @@ plan; it does not restate the PRD, only the engineering approach and sequencing.
 | Styling | **Tailwind** for chrome, CSS custom properties for strand colours | strand colours must be data-driven |
 | Data | **Markdown + YAML frontmatter** in `/events`, parsed via `import.meta.glob` + `gray-matter` | PRD §5 / §6 |
 | Animation | **framer-motion** for panels/tooltips (DOM); D3 transitions inside SVG | PRD §6 |
-| Deploy | **Vercel** (static SPA) | PRD §8 milestone |
+| Deploy | **GitHub Pages** (static SPA via GitHub Actions) | PRD §8 ("Deployment: GitHub Pages, static export") |
 
 ### The one architectural rule
 
@@ -28,7 +28,8 @@ embedded in Next.js (PRD §6 "Framework portability").
 - **Guided tour (Q3):** `src/data/tour.ts` — an ordered array of `event_id`s with
   optional per-step commentary. Version-controlled, no curation UI.
 - **Deep-linking (§10):** `?event=<id>` query param, wired in Stage 2 so it is
-  "free" by the time we polish in Stage 5.
+  "free" by the time we polish in Stage 5. Using a query param (not a path route)
+  also means GitHub Pages needs no SPA 404-fallback hack.
 - **Coverage (Q5):** the seed set deliberately includes non-Western milestones
   (e.g. ERNIE, DeepSeek, Qwen) alongside the widely-known events.
 - **Seed dataset strategy:** start small (~20–30 high-confidence, fully-sourced
@@ -100,7 +101,11 @@ index.html
 
 ### Stage 5 — Polish + deploy
 - Responsive layout; keyboard accessibility (focusable nodes, ARIA, panel focus
-  trap); <2s load target; perf pass; deploy to Vercel.
+  trap); <2s load target; perf pass.
+- **Deploy to GitHub Pages:** set Vite `base` to the repo path (e.g.
+  `/Actual-AI-Timeline/`); add a GitHub Actions workflow
+  (`actions/upload-pages-artifact` + `actions/deploy-pages`) that builds on push
+  to the default branch and publishes. Custom domain optional later.
 
 ---
 
