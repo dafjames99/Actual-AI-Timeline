@@ -7,8 +7,8 @@ interface FilterBarProps {
 }
 
 /**
- * Strand toggles (PRD §7). Clicking a chip shows/hides that strand's lane; the
- * Timeline reclaims the vertical space of any hidden lane.
+ * Strand toggles (PRD §7) — also the colour legend for the timeline dots.
+ * Clicking a chip shows/hides every event on that strand.
  */
 export default function FilterBar({ visible, onToggle }: FilterBarProps) {
   return (
