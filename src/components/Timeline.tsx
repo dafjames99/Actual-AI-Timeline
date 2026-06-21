@@ -338,12 +338,22 @@ export default function Timeline({
   );
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    if (nearest && e.key === "Enter" && nearest.dist < 2) {
+      onSelect(nearest.p.e.id);
+    }
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
       e.preventDefault();
       e.stopPropagation(); // don't also drive the guided-tour global handler
       stepBy(e.key === "ArrowRight" ? 1 : -1);
     }
   };
+
+  // 
+  useEffect(() => {
+    if (!selectedId && stageRef.current) {
+      stageRef.current.focus();
+    }
+  }, [selectedId]);
 
   const selectAt = (p: Placed) => {
     onSelect(p.e.id);
