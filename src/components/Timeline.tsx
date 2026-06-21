@@ -17,6 +17,7 @@ import {
   PX_PER_YEAR,
   STAGE_MIN_HEIGHT,
   TRACK_PAD,
+  STAGE_HEIGHT
 } from "./layout";
 
 export type TimelineMode = "date" | "even";
@@ -386,7 +387,7 @@ export default function Timeline({
       <div
         ref={stageRef}
         className="relative touch-none select-none overflow-hidden outline-none"
-        style={{ height: "70vh", minHeight: STAGE_MIN_HEIGHT }}
+        style={{ height: STAGE_HEIGHT, minHeight: STAGE_MIN_HEIGHT }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -396,6 +397,16 @@ export default function Timeline({
         role="group"
         aria-label="AI progress timeline — drag to scrub through time"
       >
+        {/* Era description */}
+        <div
+          className="absolute z-20"
+          style={{ left: "2%", top: 12 }}
+        >
+          <div className="absolute text-center font-label text-[9px] font-semibold uppercase tracking-[0.14em] text-label">
+            {centreDate ? eraOf(String(centreDate)).label : ""}
+          </div>
+        </div>
+
         {/* Moving track: era line + event dots + the centred title card. */}
         <div
           className="absolute left-0 top-0 h-full will-change-transform"

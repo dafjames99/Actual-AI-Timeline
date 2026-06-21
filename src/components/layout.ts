@@ -18,3 +18,4 @@ export const LINE_WEIGHT = 4; // thickness of the era-coloured baseline
 // the track area; dots fan above/below it; the dial occupies the bottom.
 export const STAGE_MIN_HEIGHT = 360;
 export const DIAL_HEIGHT = 76;
+export const STAGE_HEIGHT = "30vh";
