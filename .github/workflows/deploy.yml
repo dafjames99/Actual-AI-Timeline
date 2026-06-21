@@ -2,7 +2,8 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["claude/timeline-mobile-redesign-vkg06n"]
+    branches: ["main"]
+    # branches: ["preview"]
   workflow_dispatch:
 
 # Permissions required for the GitHub Pages deployment.
