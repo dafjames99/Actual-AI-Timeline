@@ -123,8 +123,7 @@ edges into one coordinate space without rewriting the node rendering.
 1. **Stage 1 — lane model + static render (no edges).** §1 extraction, §2 `founded` only,
    `BranchTimeline` placing events on lanes with lane-head logos, resolve unaffiliated default,
    add the view toggle. *Validates layout + data.*
-2. **Stage 2 — genealogy edges.** Remaining registry fields + spinout/merge/acquisition/sunset
-   béziers. Acquisition softer (dashed/low-opacity). *The actual branching.*
+2. **Stage 2 — genealogy edges.** ✅ *Done.* See "Stage 2 — as built" below.
 3. **Stage 3 — interaction + bridge.** Pan/zoom or fit-to-width + tap; branch→flat bridge.
 4. **Stage 4 — responsive.** Try the portrait orientation flip (time→Y, orgs→columns); fall
    back to top-N org filter reusing the strand-filter UI pattern (spec §7).
@@ -150,3 +149,39 @@ the fuller set, so merge before Stage 2.
 4. Lane ordering → **topological-by-founding + `laneOrderHint`** overrides.
 5. Separate component → **yes, `BranchTimeline.tsx`** (confirmed by the audit above).
 6. *New:* split the `google` brand into Brain / DeepMind / Google DeepMind lanes (§2).
+
+## 8. Stage 2 — as built
+
+**Registry ([brands.ts](src/data/brands.ts)).** `google` split into `google` (generic) /
+`google-brain` / `deepmind` / `google-deepmind`; added `xai` and `inflection` (no
+simple-icons mark → lettered fallback disc at the lane head). Edges encoded:
+- spinout: Anthropic ← OpenAI; Mistral ← DeepMind + Meta
+- merge: Google DeepMind ← Google Brain + DeepMind (2023-04)
+- acquisition: DeepMind ← Google (2014, mid-life)
+- absorb: Inflection → Microsoft (2024)
+
+**Model extension.** Added `acquired?: { by; date }` beyond the spec's §4 model. The spec only
+expresses birth (`parents`/`relation`) and death (`becomes`/`dissolved`); DeepMind kept running
+after Google acquired it in 2014, a *mid-life* edge neither field could date correctly.
+`relation` narrowed to `"spinout" | "merge"` (acquisition is no longer a birth relation).
+
+**Edge derivation ([branchLayout.ts](src/components/branchLayout.ts)).** Edges are computed
+from the registry, each attached at a single date-x: births at the child/merged lane's
+`founded`, acquisition at its date, absorption at `becomes.date`. An `absorb` edge is
+suppressed when the target already claims the source as a merge parent (avoids drawing the
+Google merge twice). Lane lines extend to their `becomes`/`dissolved` date so they reach the
+convergence point.
+
+**Lane ordering.** Base order is chronological by lane head; a **merge-only** clustering pass
+pulls a merged lane and its parents adjacent (so the Google interchange is tight) — spinout/
+absorb edges tolerate longer spans and are left in chronological position to avoid tangling
+multi-parent cases (e.g. Mistral). `laneOrderHint` remains available for manual nudges.
+
+**Rendering ([BranchTimeline.tsx](src/components/BranchTimeline.tsx)).** A single SVG layer
+behind the nodes draws lazy-S béziers; births solid, acquisition/absorption dashed + lower
+opacity (open-decision #2). A small dot marks each edge's source tap.
+
+**Known caveats (Stage 3+ polish):** (a) same-lane node overlap when dates cluster (e.g.
+Gemini, the OpenAI 2024–25 run) — branch view still lacks the flat view's `DOT_MIN_GAP`
+fanning; (b) cross-lineage spinout edges (Mistral) span many rows and read as long verticals —
+acceptable per the spec's DAG-spaghetti tradeoff, but a candidate for dimming or curve routing.

@@ -3,6 +3,7 @@ import type { StrandKey, TimelineEvent } from "../data/types";
 import type { Brand } from "../data/brands";
 import { STRANDS } from "../data/strands";
 import { buildBranchLayout } from "./branchLayout";
+import type { EdgeKind } from "./branchLayout";
 import { NodeIcon } from "./NodeIcon";
 import { ICON_GLYPH } from "./layout";
 
@@ -26,6 +27,21 @@ interface BranchTimelineProps {
   onSelect: (id: string) => void;
   matchedIds: Set<string>;
   filterActive: boolean;
+}
+
+// Edge styling by genealogy type — births solid, acquisition/absorption softer
+// and dashed (SPEC-branching-org-genealogy §5, open-decision #2).
+const EDGE_STYLE: Record<EdgeKind, { width: number; opacity: number; dash?: string }> = {
+  merge: { width: 2.5, opacity: 0.65 },
+  spinout: { width: 2, opacity: 0.5 },
+  acquisition: { width: 1.75, opacity: 0.32, dash: "5 4" },
+  absorb: { width: 1.75, opacity: 0.32, dash: "5 4" },
+};
+
+/** A lazy-S connector that leaves and arrives tangent to the horizontal lanes. */
+function edgePath(x: number, y1: number, y2: number): string {
+  const k = Math.min(30, Math.max(12, Math.abs(y2 - y1) * 0.28));
+  return `M ${x},${y1} C ${x + k},${y1} ${x - k},${y2} ${x},${y2}`;
 }
 
 /** Brand logo for a lane head — the mark only (no strand ring), tinted to ink. */
@@ -58,8 +74,9 @@ export default function BranchTimeline({
     );
   }
 
-  const { scale, lanes, field } = layout;
+  const { scale, lanes, edges, field } = layout;
   const laneY = (i: number) => PAD_TOP + i * ROW_H + ROW_H / 2;
+  const rowOf = new Map(lanes.map((l, i) => [l.brand.key, i]));
   const lanesBottom = PAD_TOP + lanes.length * ROW_H;
   const fieldY = lanesBottom + FIELD_GAP + 20;
   const axisY = fieldY + 36;
@@ -108,6 +125,30 @@ export default function BranchTimeline({
             style={{ left: t.x, height: axisY }}
           />
         ))}
+
+        {/* Genealogy edges — drawn behind the lanes/nodes (SPEC §2). */}
+        <svg
+          className="pointer-events-none absolute left-0 top-0"
+          width={scale.trackWidth}
+          height={contentHeight}
+          fill="none"
+          stroke="var(--color-ink)"
+        >
+          {edges.map((e, i) => {
+            const r1 = rowOf.get(e.fromKey);
+            const r2 = rowOf.get(e.toKey);
+            if (r1 === undefined || r2 === undefined) return null;
+            const y1 = laneY(r1);
+            const y2 = laneY(r2);
+            const s = EDGE_STYLE[e.kind];
+            return (
+              <g key={`edge-${i}`} opacity={s.opacity}>
+                <path d={edgePath(e.x, y1, y2)} strokeWidth={s.width} strokeDasharray={s.dash} />
+                <circle cx={e.x} cy={y1} r={2.5} fill="var(--color-ink)" stroke="none" />
+              </g>
+            );
+          })}
+        </svg>
 
         {/* Org lanes */}
         {lanes.map((lane, i) => {
