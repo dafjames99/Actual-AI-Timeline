@@ -9,4 +9,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   base: "./",
   plugins: [react(), tailwindcss()],
+  // Honour a PORT assigned by the environment (e.g. the preview harness) so the
+  // dev server binds where it's expected instead of auto-incrementing.
+  server: process.env.PORT ? { port: Number(process.env.PORT) } : undefined,
 });

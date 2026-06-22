@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { TimelineEvent } from "../data/types";
 import { STRANDS } from "../data/strands";
+import { NodeIcon } from "./NodeIcon";
 
 interface EventPanelProps {
   event: TimelineEvent | null;
@@ -76,17 +77,25 @@ export default function EventPanel({
             aria-label={event.title}
           >
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="flex items-start gap-3">
                 <span
-                  className="inline-block rounded px-2 py-0.5 font-label text-[10px] font-semibold uppercase tracking-[0.14em] text-white"
-                  style={{ backgroundColor: STRANDS[event.strand].colour }}
+                  className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 bg-paper text-ink"
+                  style={{ borderColor: STRANDS[event.strand].colour }}
                 >
-                  {STRANDS[event.strand].label}
+                  <NodeIcon event={event} size={22} />
                 </span>
-                <h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.022em] text-ink">
-                  {event.title}
-                </h2>
-                <time className="font-mono text-sm text-muted">{event.date}</time>
+                <div>
+                  <span
+                    className="inline-block rounded px-2 py-0.5 font-label text-[10px] font-semibold uppercase tracking-[0.14em] text-white"
+                    style={{ backgroundColor: STRANDS[event.strand].colour }}
+                  >
+                    {STRANDS[event.strand].label}
+                  </span>
+                  <h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.022em] text-ink">
+                    {event.title}
+                  </h2>
+                  <time className="font-mono text-sm text-muted">{event.date}</time>
+                </div>
               </div>
               <button
                 type="button"

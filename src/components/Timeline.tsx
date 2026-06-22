@@ -10,9 +10,10 @@ import {
   ERA_LABEL_H,
   DOT_MIN_GAP,
   DOT_R,
-  DOT_R_ACTIVE,
   EVEN_SPACING,
   FAN_STEP,
+  ICON_GLYPH,
+  ICON_NODE_R,
   LINE_WEIGHT,
   POPUP_THRESHOLD,
   PX_PER_YEAR,
@@ -20,6 +21,8 @@ import {
   TRACK_PAD,
   STAGE_HEIGHT
 } from "./layout";
+import { NodeIcon } from "./NodeIcon";
+import { resolveNodeIcon } from "./nodeIconResolver";
 
 export type TimelineMode = "date" | "even";
 
@@ -397,6 +400,7 @@ export default function Timeline({
     ? ERAS.findIndex((e) => e.key === eraOf(centreDate.toISOString().slice(0, 10)).key)
     : 0;
   const popup = nearest && nearest.dist <= POPUP_THRESHOLD ? nearest.p : null;
+  const popupLabel = popup ? resolveNodeIcon(popup.e).label : "";
 
   return (
     <div className="overflow-hidden rounded-lg border border-ink bg-panel">
@@ -457,14 +461,18 @@ export default function Timeline({
             />
           ))}
 
-          {/* Event dots (fanned stems for near-collisions) */}
+          {/* Event nodes: small strand dots; the one nearest centre blooms into
+              an icon disc (brand mark / strand glyph) ringed in its strand colour. */}
           {shown.map((p) => {
             const strand = STRANDS[p.e.strand];
             const active = popup?.e.id === p.e.id;
             const selected = p.e.id === selectedId;
             const dimmed = filterActive && !matchedIds.has(p.e.id);
-            const r = active ? DOT_R_ACTIVE : DOT_R;
             const dotY = lineY + p.yOffset;
+            const onClick = () => {
+              if (wasDrag.current) return; // ignore the click that ends a drag
+              selectAt(p);
+            };
             return (
               <div key={p.e.id}>
                 {p.yOffset !== 0 && (
@@ -480,26 +488,46 @@ export default function Timeline({
                     }}
                   />
                 )}
-                <button
-                  type="button"
-                  aria-label={`${p.e.title}, ${p.e.date}`}
-                  onClick={() => {
-                    if (wasDrag.current) return; // ignore the click that ends a drag
-                    selectAt(p);
-                  }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full transition-[width,height] duration-150"
-                  style={{
-                    left: p.x,
-                    top: dotY,
-                    width: r * 2,
-                    height: r * 2,
-                    backgroundColor: strand.colour,
-                    opacity: dimmed ? 0.15 : 1,
-                    boxShadow: selected
-                      ? `0 0 0 3px var(--color-panel), 0 0 0 5px ${strand.colour}`
-                      : "0 0 0 1.5px var(--color-panel)",
-                  }}
-                />
+                {active ? (
+                  <button
+                    type="button"
+                    aria-label={`${p.e.title}, ${p.e.date}`}
+                    onClick={onClick}
+                    className="absolute z-[1] flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-ink transition-[width,height] duration-150"
+                    style={{
+                      left: p.x,
+                      top: dotY,
+                      width: ICON_NODE_R * 2,
+                      height: ICON_NODE_R * 2,
+                      backgroundColor: "var(--color-panel)",
+                      border: `2.5px solid ${strand.colour}`,
+                      opacity: dimmed ? 0.25 : 1,
+                      boxShadow: selected
+                        ? `0 0 0 3px var(--color-panel), 0 0 0 5px ${strand.colour}`
+                        : "0 1px 3px rgba(33,28,21,0.18)",
+                    }}
+                  >
+                    <NodeIcon event={p.e} size={ICON_GLYPH} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label={`${p.e.title}, ${p.e.date}`}
+                    onClick={onClick}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full transition-[width,height] duration-150"
+                    style={{
+                      left: p.x,
+                      top: dotY,
+                      width: DOT_R * 2,
+                      height: DOT_R * 2,
+                      backgroundColor: strand.colour,
+                      opacity: dimmed ? 0.15 : 1,
+                      boxShadow: selected
+                        ? `0 0 0 3px var(--color-panel), 0 0 0 5px ${strand.colour}`
+                        : "0 0 0 1.5px var(--color-panel)",
+                    }}
+                  />
+                )}
               </div>
             );
           })}
@@ -509,13 +537,17 @@ export default function Timeline({
             <div
               key={popup.e.id}
               className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full"
-              style={{ left: popup.x, top: lineY + Math.min(0, popup.yOffset) - DOT_R_ACTIVE - 10 }}
+              style={{ left: popup.x, top: lineY + Math.min(0, popup.yOffset) - ICON_NODE_R - 10 }}
             >
               <div className="animate-[pop_180ms_ease-out] whitespace-nowrap rounded-lg border border-ink bg-ink px-3 py-1.5 text-center shadow-lg">
-                <div className="font-display text-sm font-semibold leading-tight text-paper">
-                  {popup.e.title}
+                <div className="flex items-center justify-center gap-1.5">
+                  <NodeIcon event={popup.e} size={14} color="var(--color-paper)" />
+                  <div className="font-display text-sm font-semibold leading-tight text-paper">
+                    {popup.e.title}
+                  </div>
                 </div>
                 <div className="font-mono text-[10px] text-tour-muted">
+                  {popupLabel ? `${popupLabel} · ` : ""}
                   {formatCentre(new Date(popup.e.date))}
                 </div>
               </div>

@@ -180,6 +180,14 @@ export default function App() {
         )}
       </main>
 
+      <footer className="border-t border-hairline px-4 py-6 sm:px-6">
+        <p className="max-w-2xl font-body text-xs leading-relaxed text-muted">
+          All product names, logos, and brands are property of their respective owners.
+          Logos are used here for identification and editorial purposes only; this site is
+          not affiliated with, endorsed by, or sponsored by any of them.
+        </p>
+      </footer>
+
       <EventPanel
         event={selected}
         related={related}
