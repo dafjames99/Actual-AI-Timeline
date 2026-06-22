@@ -7,9 +7,11 @@ import { TOUR } from "./data/tour";
 import type { StrandKey, TimelineEvent } from "./data/types";
 import Timeline from "./components/Timeline";
 import type { TimelineMode } from "./components/Timeline";
+import BranchTimeline from "./components/BranchTimeline";
 import FilterBar from "./components/FilterBar";
 import SearchBar from "./components/SearchBar";
 import Controls from "./components/Controls";
+import type { TimelineView } from "./components/Controls";
 import EventPanel from "./components/EventPanel";
 import TourOverlay from "./components/TourOverlay";
 import { useSelectedEvent } from "./hooks/useSelectedEvent";
@@ -20,6 +22,7 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [mode, setMode] = useState<TimelineMode>("date");
+  const [view, setView] = useState<TimelineView>("flat");
   const [center, setCenter] = useState<{ id: string | null; key: number }>({ id: null, key: 0 });
   const [tourIndex, setTourIndex] = useState<number | null>(null);
   const { selectedId, select } = useSelectedEvent();
@@ -155,6 +158,8 @@ export default function App() {
         onClear={clearFilters}
       />
       <Controls
+        view={view}
+        onView={setView}
         mode={mode}
         onMode={setMode}
         onJumpEra={jumpEra}
@@ -165,6 +170,15 @@ export default function App() {
       <main className="p-3 sm:p-6">
         {!events ? (
           <p className="text-muted">Loading events…</p>
+        ) : view === "branch-org" ? (
+          <BranchTimeline
+            events={events}
+            visibleStrands={visible}
+            selectedId={selectedId}
+            onSelect={select}
+            matchedIds={matchedIds}
+            filterActive={filterActive}
+          />
         ) : (
           <Timeline
             events={events}

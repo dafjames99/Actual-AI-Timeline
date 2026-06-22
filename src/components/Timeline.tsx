@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { scaleTime } from "d3-scale";
-import { timeYear } from "d3-time";
 import { timeFormat } from "d3-time-format";
 import type { StrandKey, TimelineEvent } from "../data/types";
 import { STRANDS } from "../data/strands";
@@ -16,19 +14,18 @@ import {
   ICON_NODE_R,
   LINE_WEIGHT,
   POPUP_THRESHOLD,
-  PX_PER_YEAR,
   STAGE_MIN_HEIGHT,
   TRACK_PAD,
   STAGE_HEIGHT,
   ACTIVE_Y_OFFSET
 } from "./layout";
+import { buildTimeScale } from "./timeScale";
+import type { Tick } from "./timeScale";
 import { NodeIcon } from "./NodeIcon";
 import { resolveNodeIcon } from "./nodeIconResolver";
 
 export type TimelineMode = "date" | "even";
 
-const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
-const formatYear = timeFormat("%Y");
 const formatCentre = timeFormat("%b %Y");
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
@@ -49,10 +46,6 @@ interface Placed {
   e: TimelineEvent;
   x: number; // position along the track (px)
   yOffset: number; // fan offset off the baseline for near-collisions
-}
-interface Tick {
-  x: number;
-  label: string;
 }
 interface Band {
   key: string;
@@ -81,10 +74,6 @@ export default function Timeline({
   // --- Track geometry (positions are stable regardless of strand filtering) ---
   const layout = useMemo(() => {
     if (events.length === 0) return null;
-    const times = events.map((e) => new Date(e.date).getTime());
-    const pad = YEAR_MS / 3;
-    const d0 = new Date(Math.min(...times) - pad);
-    const d1 = new Date(Math.max(...times) + pad);
 
     let trackWidth: number;
     let xOf: (e: TimelineEvent) => number;
@@ -93,13 +82,12 @@ export default function Timeline({
     let ticks: Tick[];
 
     if (mode === "date") {
-      const years = (d1.getTime() - d0.getTime()) / YEAR_MS;
-      trackWidth = Math.round(years * PX_PER_YEAR) + TRACK_PAD * 2;
-      const scale = scaleTime().domain([d0, d1]).range([TRACK_PAD, trackWidth - TRACK_PAD]);
-      xOf = (e) => scale(new Date(e.date));
-      dateAtX = (x) => scale.invert(x);
-      xOfDate = (d) => scale(d);
-      ticks = scale.ticks(timeYear).map((t) => ({ x: scale(t), label: formatYear(t) }));
+      const ts = buildTimeScale(events);
+      trackWidth = ts.trackWidth;
+      xOf = ts.xOf;
+      dateAtX = ts.dateAtX;
+      xOfDate = ts.xOfDate;
+      ticks = ts.ticks;
     } else {
       const n = events.length;
       trackWidth = (n - 1) * EVEN_SPACING + TRACK_PAD * 2;
