@@ -15,10 +15,10 @@ interface NodeIconProps {
 export function NodeIcon({ event, size, color = "currentColor", className, style }: NodeIconProps) {
   const resolved = resolveNodeIcon(event);
 
-  if (resolved.kind === "brand" && resolved.brand.icon) {
+  if (resolved.kind === "mark") {
     return (
       <svg
-        viewBox="0 0 24 24"
+        viewBox={resolved.viewBox}
         width={size}
         height={size}
         role="img"
@@ -28,21 +28,8 @@ export function NodeIcon({ event, size, color = "currentColor", className, style
         style={style}
       >
         <title>{resolved.label}</title>
-        <path d={resolved.brand.icon.path} />
+        <path d={resolved.path} />
       </svg>
-    );
-  }
-
-  if (resolved.kind === "brand" && resolved.brand.asset) {
-    return (
-      <img
-        src={resolved.brand.asset}
-        width={size}
-        height={size}
-        alt={resolved.label}
-        className={className}
-        style={style}
-      />
     );
   }
 
