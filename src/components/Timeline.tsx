@@ -7,6 +7,7 @@ import { STRANDS } from "../data/strands";
 import { ERAS, eraOf } from "../data/eras";
 import {
   DIAL_HEIGHT,
+  ERA_LABEL_H,
   DOT_MIN_GAP,
   DOT_R,
   DOT_R_ACTIVE,
@@ -17,6 +18,7 @@ import {
   PX_PER_YEAR,
   STAGE_MIN_HEIGHT,
   TRACK_PAD,
+  STAGE_HEIGHT
 } from "./layout";
 
 export type TimelineMode = "date" | "even";
@@ -83,6 +85,7 @@ export default function Timeline({
     let trackWidth: number;
     let xOf: (e: TimelineEvent) => number;
     let dateAtX: ((x: number) => Date) | null;
+    let xOfDate: ((d: Date) => number) | null;
     let ticks: Tick[];
 
     if (mode === "date") {
@@ -91,6 +94,7 @@ export default function Timeline({
       const scale = scaleTime().domain([d0, d1]).range([TRACK_PAD, trackWidth - TRACK_PAD]);
       xOf = (e) => scale(new Date(e.date));
       dateAtX = (x) => scale.invert(x);
+      xOfDate = (d) => scale(d);
       ticks = scale.ticks(timeYear).map((t) => ({ x: scale(t), label: formatYear(t) }));
     } else {
       const n = events.length;
@@ -98,6 +102,7 @@ export default function Timeline({
       const idx = new Map(events.map((e, i) => [e.id, i]));
       xOf = (e) => TRACK_PAD + (idx.get(e.id) ?? 0) * EVEN_SPACING;
       dateAtX = null;
+      xOfDate = null;
       ticks = [];
       let lastYear = "";
       for (const e of events) {
@@ -128,12 +133,21 @@ export default function Timeline({
       return xs.length ? { era, min: Math.min(...xs), max: Math.max(...xs) } : null;
     }).filter((p): p is { era: (typeof ERAS)[number]; min: number; max: number } => p !== null);
 
-    const bands: Band[] = present.map((p, i) => ({
-      key: p.era.key,
-      colour: p.era.colour,
-      left: i === 0 ? 0 : (present[i - 1].max + p.min) / 2,
-      right: i === present.length - 1 ? trackWidth : (p.max + present[i + 1].min) / 2,
-    }));
+    const bands: Band[] = present.map((p, i) => {
+      if (xOfDate) {
+        const left = i === 0 ? 0 : xOfDate(new Date(p.era.start!));
+        const right = i === present.length - 1 ? trackWidth : xOfDate(new Date(present[i + 1].era.start!));
+        return {
+          key: p.era.key, colour: p.era.colour, left: clamp(left, 0, trackWidth), right: clamp(right, 0, trackWidth)
+        }
+      }
+      return {
+        key: p.era.key,
+        colour: p.era.colour,
+        left: i === 0 ? 0 : (present[i - 1].max + p.min) / 2,
+        right: i === present.length - 1 ? trackWidth : (p.max + present[i + 1].min) / 2,
+      }
+    });
 
     const firstX = placed[0].x;
     const lastX = placed[placed.length - 1].x;
@@ -379,6 +393,9 @@ export default function Timeline({
         ? new Date(nearest.p.e.date)
         : null;
   const centreEraColour = centreDate ? eraOf(centreDate.toISOString().slice(0, 10)).colour : "#94897a";
+  const activeEraIndex = centreDate
+    ? ERAS.findIndex((e) => e.key === eraOf(centreDate.toISOString().slice(0, 10)).key)
+    : 0;
   const popup = nearest && nearest.dist <= POPUP_THRESHOLD ? nearest.p : null;
 
   return (
@@ -386,7 +403,7 @@ export default function Timeline({
       <div
         ref={stageRef}
         className="relative touch-none select-none overflow-hidden outline-none"
-        style={{ height: "70vh", minHeight: STAGE_MIN_HEIGHT }}
+        style={{ height: STAGE_HEIGHT, minHeight: STAGE_MIN_HEIGHT }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -396,6 +413,30 @@ export default function Timeline({
         role="group"
         aria-label="AI progress timeline — drag to scrub through time"
       >
+        {/* Era label — a vertical wheel. All eras are rendered, stacked at the
+            same origin; the active one sits in a one-row window while the rest
+            are translated off-screen. Crossing a boundary rolls the wheel, and
+            jumping several eras at once flicks through the ones in between. */}
+        <div
+          className="pointer-events-none absolute z-20 overflow-hidden"
+          style={{ left: "2%", top: 12, height: ERA_LABEL_H, width: 220 }}
+        >
+          {ERAS.map((era, i) => (
+            <div
+              key={era.key}
+              className="absolute left-0 top-0 whitespace-nowrap font-label text-[13px] font-light uppercase tracking-[0.14em] font-stretch-expanded transition-transform duration-500 ease-out"
+              style={{
+                height: ERA_LABEL_H,
+                lineHeight: `${ERA_LABEL_H}px`,
+                transform: `translateY(${(i - activeEraIndex) * ERA_LABEL_H}px)`,
+                color: centreEraColour,
+              }}
+            >
+              {era.label}
+            </div>
+          ))}
+        </div>
+
         {/* Moving track: era line + event dots + the centred title card. */}
         <div
           className="absolute left-0 top-0 h-full will-change-transform"

@@ -14,7 +14,10 @@ export const POPUP_THRESHOLD = 56; // px from centre within which a title pops u
 
 export const LINE_WEIGHT = 4; // thickness of the era-coloured baseline
 
+export const ERA_LABEL_H = 18; // px height of one row in the top-left era-label wheel
+
 // Vertical layout of the stage (px). The line sits at LINE_Y from the top of
 // the track area; dots fan above/below it; the dial occupies the bottom.
 export const STAGE_MIN_HEIGHT = 360;
 export const DIAL_HEIGHT = 76;
+export const STAGE_HEIGHT = "30vh";
