@@ -112,6 +112,22 @@ export function buildBranchLayout(events: TimelineEvent[]): BranchLayout {
     }
   }
 
+  // Drop single-node lanes that aren't part of any genealogy edge — a lone dot
+  // reads as noise (user feedback). Their events fall back to the field line, so
+  // they're still present, just not promoted to their own lineage. An org in an
+  // edge (e.g. Inflection → Microsoft) keeps its lane even with one node.
+  const edgeKeys = new Set<string>();
+  for (const e of edges) {
+    edgeKeys.add(e.fromKey);
+    edgeKeys.add(e.toKey);
+  }
+  const kept: Lane[] = [];
+  for (const lane of lanes) {
+    if (lane.events.length >= 2 || edgeKeys.has(lane.brand.key)) kept.push(lane);
+    else field.push(...lane.events);
+  }
+  lanes = kept;
+
   field.sort((a, b) => a.date.localeCompare(b.date));
   return { scale, lanes, edges, field };
 }

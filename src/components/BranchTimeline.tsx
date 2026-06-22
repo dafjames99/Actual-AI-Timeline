@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { StrandKey, TimelineEvent } from "../data/types";
 import { STRANDS } from "../data/strands";
 import { buildBranchLayout } from "./branchLayout";
@@ -7,9 +7,13 @@ import { NodeIcon } from "./NodeIcon";
 import { ICON_GLYPH } from "./layout";
 
 // Org-genealogy branch view — the "overview altitude" (SPEC-branching-org-genealogy).
-// Stage 1: static lanes + nodes (no genealogy edges yet). x = shared time axis,
-// y = one lane per org, plus a "field" ground-line for unaffiliated events.
-// DOM-positioned (like Timeline); the SVG bézier edge layer arrives in Stage 2.
+// x = shared time axis, y = one lane per org, plus a "field" ground-line for
+// events with no lab-lineage org. Genealogy edges (SVG béziers) connect the lanes
+// but stay quiet until a lane is hovered/selected, so they inform on demand rather
+// than clutter. DOM-positioned nodes (like Timeline) over the edge SVG.
+
+const EDGE_DIM = 0.14; // resting opacity for edges when nothing is focused
+const EDGE_MUTED = 0.05; // opacity for edges outside the focused lineage
 
 const ROW_H = 72; // px height of one org lane
 const PAD_TOP = 36; // px above the first lane
@@ -50,7 +54,16 @@ export default function BranchTimeline({
   matchedIds,
   filterActive,
 }: BranchTimelineProps) {
+  const [hovered, setHovered] = useState<string | null>(null);
   const layout = useMemo(() => (events.length ? buildBranchLayout(events) : null), [events]);
+
+  // The lane (org) whose lineage should light up: a hovered lane wins, else the
+  // lane that owns the selected event.
+  const selectedKey = useMemo(
+    () => layout?.lanes.find((l) => l.events.some((e) => e.id === selectedId))?.brand.key ?? null,
+    [layout, selectedId],
+  );
+  const activeKey = hovered ?? selectedKey;
 
   if (!layout) {
     return (
@@ -67,7 +80,7 @@ export default function BranchTimeline({
   const contentHeight = axisY + AXIS_H;
 
   // A single event disc — strand-ringed logo/glyph; shared by lanes and the field.
-  const renderNode = (e: TimelineEvent, cy: number) => {
+  const renderNode = (e: TimelineEvent, cy: number, laneKey?: string) => {
     if (!visibleStrands.has(e.strand)) return null;
     const strand = STRANDS[e.strand];
     const selected = e.id === selectedId;
@@ -78,6 +91,8 @@ export default function BranchTimeline({
         type="button"
         aria-label={`${e.title}, ${e.date}`}
         onClick={() => onSelect(e.id)}
+        onMouseEnter={() => setHovered(laneKey ?? null)}
+        onMouseLeave={() => setHovered(null)}
         title={e.title}
         className="absolute z-[1] flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full"
         style={{
@@ -125,8 +140,10 @@ export default function BranchTimeline({
             const y1 = laneY(r1);
             const y2 = laneY(r2);
             const s = EDGE_STYLE[e.kind];
+            const inLineage = e.fromKey === activeKey || e.toKey === activeKey;
+            const opacity = activeKey ? (inLineage ? s.opacity : EDGE_MUTED) : EDGE_DIM;
             return (
-              <g key={`edge-${i}`} opacity={s.opacity}>
+              <g key={`edge-${i}`} opacity={opacity}>
                 <path d={edgePath(e.x, y1, y2)} strokeWidth={s.width} strokeDasharray={s.dash} />
                 <circle cx={e.x} cy={y1} r={2.5} fill="var(--color-ink)" stroke="none" />
               </g>
@@ -153,12 +170,13 @@ export default function BranchTimeline({
                 {lane.brand.label}
               </div>
               {/* events — the first one is the clickable lane head */}
-              {lane.events.map((e) => renderNode(e, y))}
+              {lane.events.map((e) => renderNode(e, y, lane.brand.key))}
             </div>
           );
         })}
 
-        {/* "Field" ground-line — unaffiliated papers & policy (SPEC §5 default). */}
+        {/* "Field" ground-line — events without a lab-lineage lane: papers, policy,
+            and tooling/sparse orgs demoted from their own lane (SPEC §5). */}
         {field.length > 0 && (
           <>
             <div
@@ -169,7 +187,7 @@ export default function BranchTimeline({
               className="absolute z-[2] font-label text-[11px] font-semibold uppercase tracking-[0.1em] text-muted"
               style={{ left: 8, top: fieldY - 22 }}
             >
-              The field · papers & policy
+              The field · papers, policy & tooling
             </div>
             {field.map((e) => renderNode(e, fieldY))}
           </>

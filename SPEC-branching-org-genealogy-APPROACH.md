@@ -181,7 +181,20 @@ multi-parent cases (e.g. Mistral). `laneOrderHint` remains available for manual 
 behind the nodes draws lazy-S béziers; births solid, acquisition/absorption dashed + lower
 opacity (open-decision #2). A small dot marks each edge's source tap.
 
-**Known caveats (Stage 3+ polish):** (a) same-lane node overlap when dates cluster (e.g.
-Gemini, the OpenAI 2024–25 run) — branch view still lacks the flat view's `DOT_MIN_GAP`
-fanning; (b) cross-lineage spinout edges (Mistral) span many rows and read as long verticals —
-acceptable per the spec's DAG-spaghetti tradeoff, but a candidate for dimming or curve routing.
+## 9. Post-Stage-2 refinements (user feedback)
+
+- **Lane heads unified with the founding node.** The separate logo lane-head disc was removed:
+  it duplicated the founding event node, occluded its click (a "dud"), and could sit offset
+  when the registry `founded` date disagreed with the founding event's date. Lanes now start at
+  their first event, which is the clickable head; the org label sits above it. `founded` no
+  longer drives geometry (kept as metadata / future fallback).
+- **Single-node lanes dropped unless they carry an edge.** A lone dot reads as noise, so an org
+  needs ≥2 events *or* participation in a genealogy edge to get a lane; otherwise its events
+  fall to the field line (relabelled "papers, policy & tooling"). With current data this demotes
+  Hugging Face and xAI; Inflection keeps its lane for the Microsoft sunset edge.
+- **Edges are quiet by default, loud on focus.** All edges rest at low opacity; hovering or
+  selecting a lane lights up just that org's lineage and mutes the rest — edges inform on demand
+  instead of cluttering. This is the interaction-gating that the full Stage 3 bridge builds on.
+
+**Remaining caveat (Stage 3+ polish):** same-lane node overlap when dates cluster (Gemini, the
+OpenAI 2024–25 run) — branch view still lacks the flat view's `DOT_MIN_GAP` fanning.
