@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import type { StrandKey, TimelineEvent } from "../data/types";
-import type { Brand } from "../data/brands";
 import { STRANDS } from "../data/strands";
 import { buildBranchLayout } from "./branchLayout";
 import type { EdgeKind } from "./branchLayout";
@@ -17,8 +16,7 @@ const PAD_TOP = 36; // px above the first lane
 const FIELD_GAP = 28; // gap between the last lane and the field ground-line
 const AXIS_H = 34; // year-axis strip at the bottom
 const NODE_R = 16; // event-disc radius (matches flat view's active node)
-const HEAD_R = 17; // lane-head logo-disc radius
-const LANE_MIN_W = 2 * HEAD_R; // a one-node lane still draws a visible stub
+const LANE_MIN_W = 2 * NODE_R; // a one-node lane still draws a visible stub
 
 interface BranchTimelineProps {
   events: TimelineEvent[];
@@ -42,20 +40,6 @@ const EDGE_STYLE: Record<EdgeKind, { width: number; opacity: number; dash?: stri
 function edgePath(x: number, y1: number, y2: number): string {
   const k = Math.min(30, Math.max(12, Math.abs(y2 - y1) * 0.28));
   return `M ${x},${y1} C ${x + k},${y1} ${x - k},${y2} ${x},${y2}`;
-}
-
-/** Brand logo for a lane head — the mark only (no strand ring), tinted to ink. */
-function BrandMark({ brand, size }: { brand: Brand; size: number }) {
-  const viewBox = brand.icon ? "0 0 24 24" : brand.mark?.viewBox;
-  const path = brand.icon?.path ?? brand.mark?.path;
-  if (!viewBox || !path) {
-    return <span className="font-display text-xs font-semibold text-ink">{brand.label[0]}</span>;
-  }
-  return (
-    <svg viewBox={viewBox} width={size} height={size} fill="var(--color-ink)" aria-hidden>
-      <path d={path} />
-    </svg>
-  );
 }
 
 export default function BranchTimeline({
@@ -161,20 +145,14 @@ export default function BranchTimeline({
                 className="absolute rounded-full bg-edge"
                 style={{ left: lane.startX, top: y - 1.5, width, height: 3 }}
               />
-              {/* lane-head logo + label */}
+              {/* org label, above the lane's first (head) node */}
               <div
-                className="absolute z-[2] -translate-y-1/2 font-label text-[11px] font-semibold uppercase tracking-[0.1em] text-secondary"
-                style={{ left: lane.startX + HEAD_R + 8, top: y - HEAD_R - 4 }}
+                className="absolute z-[2] whitespace-nowrap font-label text-[11px] font-semibold uppercase tracking-[0.1em] text-secondary"
+                style={{ left: lane.startX - NODE_R, top: y - NODE_R - 19 }}
               >
                 {lane.brand.label}
               </div>
-              <div
-                className="absolute z-[2] flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-ink bg-paper"
-                style={{ left: lane.startX, top: y, width: HEAD_R * 2, height: HEAD_R * 2 }}
-              >
-                <BrandMark brand={lane.brand} size={ICON_GLYPH} />
-              </div>
-              {/* events */}
+              {/* events — the first one is the clickable lane head */}
               {lane.events.map((e) => renderNode(e, y))}
             </div>
           );

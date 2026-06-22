@@ -13,8 +13,8 @@ const ageOf = (b: Brand) => BRANDS.indexOf(b); // stable registry order, for tie
 export interface Lane {
   brand: Brand;
   events: TimelineEvent[]; // this org's events, date-sorted
-  headDate: string; // ISO; `founded`, else earliest event
-  startX: number; // lane-head x (clamped into the track)
+  headDate: string; // ISO; the first event — the lane starts here (its clickable head)
+  startX: number; // first-node x (the lane's left terminus)
   endX: number; // line end x: last node, extended to a `becomes`/`dissolved` date
 }
 
@@ -62,8 +62,10 @@ export function buildBranchLayout(events: TimelineEvent[]): BranchLayout {
   for (const [key, evs] of byBrand) {
     const brand = BRANDS.find((b) => b.key === key)!;
     const sorted = [...evs].sort((a, b) => a.date.localeCompare(b.date));
-    const headDate = brand.founded ?? sorted[0].date;
-    const startX = xAt(headDate);
+    // The lane starts at its first (clickable) node — not a separate `founded`
+    // marker, which only duplicated the founding event and occluded its click.
+    const headDate = sorted[0].date;
+    const startX = scale.xOf(sorted[0]);
     let endX = Math.max(startX, scale.xOf(sorted[sorted.length - 1]));
     const term = brand.becomes?.date ?? brand.dissolved;
     if (term) endX = Math.max(endX, xAt(term)); // extend the line to its merge/sunset
