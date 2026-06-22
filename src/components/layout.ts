@@ -23,3 +23,5 @@ export const ERA_LABEL_H = 18; // px height of one row in the top-left era-label
 export const STAGE_MIN_HEIGHT = 360;
 export const DIAL_HEIGHT = 76;
 export const STAGE_HEIGHT = "30vh";
+
+export const ACTIVE_Y_OFFSET = 10;

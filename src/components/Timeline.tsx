@@ -19,7 +19,8 @@ import {
   PX_PER_YEAR,
   STAGE_MIN_HEIGHT,
   TRACK_PAD,
-  STAGE_HEIGHT
+  STAGE_HEIGHT,
+  ACTIVE_Y_OFFSET
 } from "./layout";
 import { NodeIcon } from "./NodeIcon";
 import { resolveNodeIcon } from "./nodeIconResolver";
@@ -493,10 +494,10 @@ export default function Timeline({
                     type="button"
                     aria-label={`${p.e.title}, ${p.e.date}`}
                     onClick={onClick}
-                    className="absolute z-[1] flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-ink transition-[width,height] duration-150"
+                    className="absolute z-[1] flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-ink transition-[width,height,top] duration-150"
                     style={{
                       left: p.x,
-                      top: dotY,
+                      top: p.yOffset === 0 ? dotY : dotY + ACTIVE_Y_OFFSET,
                       width: ICON_NODE_R * 2,
                       height: ICON_NODE_R * 2,
                       backgroundColor: "var(--color-panel)",
