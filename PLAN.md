@@ -130,6 +130,18 @@ index.html
 ## Next steps
 
 All PRD phases (0–5) are implemented, live on GitHub Pages, and auto-deploying.
+
+**Active direction:** two linked headline specs —
+- node-iconography system (logos/glyphs as nodes) —
+  [`SPEC-iconography-overview.md`](SPEC-iconography-overview.md);
+- **org-genealogy branch view** (now the overview altitude — multi-lane subway-map
+  of labs born/merged/sunset) —
+  [`SPEC-branching-org-genealogy.md`](SPEC-branching-org-genealogy.md).
+
+Iconography labels the lanes; the branch view is the overview altitude (it
+supersedes the density-poster idea in the iconography spec's §5). Data expansion
+(below) runs as a parallel track that feeds both — branch lanes need density.
+
 Remaining work, in no fixed order:
 
 - **Data seed expansion** — grow from the current ~11 seed events toward the
