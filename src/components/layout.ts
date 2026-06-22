@@ -8,6 +8,8 @@ export const TRACK_PAD = 80; // px of track before the first / after the last ev
 
 export const DOT_R = 7; // event node radius
 export const DOT_R_ACTIVE = 9; // radius of the event nearest the centre
+export const ICON_NODE_R = 16; // radius of the active node's icon disc (~32px)
+export const ICON_GLYPH = 17; // px size of the brand mark / glyph inside that disc
 export const DOT_MIN_GAP = 26; // closer than this in x → fan events off the line
 export const FAN_STEP = 18; // vertical offset per fan level
 export const POPUP_THRESHOLD = 56; // px from centre within which a title pops up
@@ -21,3 +23,5 @@ export const ERA_LABEL_H = 18; // px height of one row in the top-left era-label
 export const STAGE_MIN_HEIGHT = 360;
 export const DIAL_HEIGHT = 76;
 export const STAGE_HEIGHT = "30vh";
+
+export const ACTIVE_Y_OFFSET = 10;
