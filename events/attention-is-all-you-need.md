@@ -2,6 +2,7 @@
 id: attention-is-all-you-need
 title: "Transformer paper"
 date: "2017-06-12"
+flagship: true
 strand: research
 summary: "Vaswani et al. proposed replacing recurrence entirely with self-attention, introducing the Transformer architecture."
 significance: "Became the foundation of every major language model that followed, from BERT to GPT-4."

@@ -2,6 +2,7 @@
 id: inflection-microsoft
 title: "Microsoft acqui-hires Inflection AI leadership"
 date: "2024-03-19"
+flagship: true
 strand: corporate
 summary: "Microsoft hired Mustafa Suleyman and most of Inflection AI's team to lead a new Microsoft AI division, in a deal structured to avoid a formal acquisition while paying Inflection $650M in licensing fees."
 significance: "Removed one of the most prominent independent AI lab founders from the independent ecosystem; Suleyman became Microsoft's EVP and CEO of Microsoft AI."

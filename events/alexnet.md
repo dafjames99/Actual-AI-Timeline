@@ -2,6 +2,7 @@
 id: alexnet
 title: "AlexNet"
 date: "2012-09-30"
+flagship: true
 strand: research
 summary: "Krizhevsky, Sutskever and Hinton's deep convolutional network won the ImageNet competition by a huge margin, trained on GPUs."
 significance: "The watershed result that convinced the field deep learning worked at scale, triggering the deep learning boom."
