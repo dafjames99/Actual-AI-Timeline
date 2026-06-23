@@ -11,6 +11,9 @@ interface EventPanelProps {
   onToggleTag: (tag: string) => void;
   onClose: () => void;
   onSelect: (id: string) => void;
+  // Branch→flat bridge (SPEC §4): present only in a branch view; jumps to the
+  // flat timeline scrubbed to this event. Omitted (button hidden) in flat view.
+  onShowOnTimeline?: (id: string) => void;
 }
 
 /**
@@ -25,6 +28,7 @@ export default function EventPanel({
   onToggleTag,
   onClose,
   onSelect,
+  onShowOnTimeline,
 }: EventPanelProps) {
   const ref = useRef<HTMLElement>(null);
 
@@ -176,7 +180,7 @@ export default function EventPanel({
               </Section>
             )}
 
-            <div className="mt-6">
+            <div className="mt-6 flex flex-wrap gap-2">
               <a
                 href={event.source_url}
                 target="_blank"
@@ -185,6 +189,15 @@ export default function EventPanel({
               >
                 View source ↗
               </a>
+              {onShowOnTimeline && (
+                <button
+                  type="button"
+                  onClick={() => onShowOnTimeline(event.id)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-ink px-3 py-2 font-label text-[10px] font-semibold uppercase tracking-[0.14em] text-ink hover:bg-wash"
+                >
+                  Show on timeline →
+                </button>
+              )}
             </div>
           </motion.aside>
         </>

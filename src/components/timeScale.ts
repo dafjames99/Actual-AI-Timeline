@@ -31,15 +31,22 @@ export interface TimeScale {
  * Build the shared proportional time scale from the event set. Domain is the
  * event date range padded by a third of a year on each side, matching the flat
  * timeline's original behaviour exactly.
+ *
+ * `pxPerYear` defaults to the flat timeline's scale; the branch view passes a
+ * zoomed value (Stage 3) to stretch/compress the shared time axis. Only the x
+ * gaps change — node discs stay a fixed pixel size.
  */
-export function buildTimeScale(events: TimelineEvent[]): TimeScale {
+export function buildTimeScale(
+  events: TimelineEvent[],
+  pxPerYear: number = PX_PER_YEAR,
+): TimeScale {
   const times = events.map((e) => new Date(e.date).getTime());
   const pad = YEAR_MS / 3;
   const d0 = new Date(Math.min(...times) - pad);
   const d1 = new Date(Math.max(...times) + pad);
 
   const years = (d1.getTime() - d0.getTime()) / YEAR_MS;
-  const trackWidth = Math.round(years * PX_PER_YEAR) + TRACK_PAD * 2;
+  const trackWidth = Math.round(years * pxPerYear) + TRACK_PAD * 2;
   const scale = scaleTime().domain([d0, d1]).range([TRACK_PAD, trackWidth - TRACK_PAD]);
 
   return {

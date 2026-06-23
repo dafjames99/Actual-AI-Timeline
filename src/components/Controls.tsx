@@ -10,6 +10,8 @@ interface ControlsProps {
   onView: (v: TimelineView) => void;
   mode: TimelineMode;
   onMode: (m: TimelineMode) => void;
+  flagshipOnly: boolean;
+  onFlagshipOnly: (v: boolean) => void;
   onJumpEra: (eraKey: string) => void;
   onStartTour: () => void;
   tourAvailable: boolean;
@@ -26,6 +28,8 @@ export default function Controls({
   onView,
   mode,
   onMode,
+  flagshipOnly,
+  onFlagshipOnly,
   onJumpEra,
   onStartTour,
   tourAvailable,
@@ -38,8 +42,34 @@ export default function Controls({
           View
         </span>
         <div className="flex overflow-hidden rounded-lg border border-ink">
-          <ModeButton on={flat} onClick={() => onView("flat")} label="Timeline" />
-          <ModeButton on={view === "branch-org"} onClick={() => onView("branch-org")} label="Lineage" />
+          <ModeButton
+            on={flat}
+            onClick={() => onView("flat")}
+            label="Timeline"
+          />
+          <ModeButton
+            on={view === "branch-org"}
+            onClick={() => onView("branch-org")}
+            label="Lineage"
+          />
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="font-label text-[10px] font-semibold uppercase tracking-[0.12em] text-label">
+          Show
+        </span>
+        <div className="flex overflow-hidden rounded-lg border border-ink">
+          <ModeButton
+            on={flagshipOnly}
+            onClick={() => onFlagshipOnly(true)}
+            label="Flagship"
+          />
+          <ModeButton
+            on={!flagshipOnly}
+            onClick={() => onFlagshipOnly(false)}
+            label="All events"
+          />
         </div>
       </div>
 
@@ -49,8 +79,16 @@ export default function Controls({
             Spacing
           </span>
           <div className="flex overflow-hidden rounded-lg border border-ink">
-            <ModeButton on={mode === "date"} onClick={() => onMode("date")} label="Date" />
-            <ModeButton on={mode === "even"} onClick={() => onMode("even")} label="Even" />
+            <ModeButton
+              on={mode === "date"}
+              onClick={() => onMode("date")}
+              label="Date"
+            />
+            <ModeButton
+              on={mode === "even"}
+              onClick={() => onMode("even")}
+              label="Even"
+            />
           </div>
         </div>
       )}
@@ -86,7 +124,15 @@ export default function Controls({
   );
 }
 
-function ModeButton({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) {
+function ModeButton({
+  on,
+  onClick,
+  label,
+}: {
+  on: boolean;
+  onClick: () => void;
+  label: string;
+}) {
   return (
     <button
       type="button"
