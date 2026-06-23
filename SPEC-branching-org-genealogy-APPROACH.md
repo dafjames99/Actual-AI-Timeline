@@ -124,7 +124,7 @@ edges into one coordinate space without rewriting the node rendering.
    `BranchTimeline` placing events on lanes with lane-head logos, resolve unaffiliated default,
    add the view toggle. *Validates layout + data.*
 2. **Stage 2 — genealogy edges.** ✅ *Done.* See "Stage 2 — as built" below.
-3. **Stage 3 — interaction + bridge.** Pan/zoom or fit-to-width + tap; branch→flat bridge.
+3. **Stage 3 — interaction + bridge.** ✅ *Done.* See "Stage 3 — as built" below.
 4. **Stage 4 — responsive.** Try the portrait orientation flip (time→Y, orgs→columns); fall
    back to top-N org filter reusing the strand-filter UI pattern (spec §7).
 
@@ -196,5 +196,106 @@ opacity (open-decision #2). A small dot marks each edge's source tap.
   selecting a lane lights up just that org's lineage and mutes the rest — edges inform on demand
   instead of cluttering. This is the interaction-gating that the full Stage 3 bridge builds on.
 
-**Remaining caveat (Stage 3+ polish):** same-lane node overlap when dates cluster (Gemini, the
-OpenAI 2024–25 run) — branch view still lacks the flat view's `DOT_MIN_GAP` fanning.
+**Remaining caveat (Stage 3+ polish):** ~~same-lane node overlap when dates cluster~~ — resolved in
+§11 (node fanning).
+
+## 10. Stage 3 — as built
+
+**Branch→flat bridge.** Decided (user): a node click in branch view keeps the Stage-2 behaviour
+(opens the detail panel + lights the org's lineage) — it does *not* auto-jump. Instead the
+[EventPanel](src/components/EventPanel.tsx) grows a **"Show on timeline →"** button, rendered only
+when an `onShowOnTimeline` handler is passed. [App](src/App.tsx) passes it solely in a branch view
+(`view !== "flat"`), so the button is absent in flat view (verified). The handler is
+`setView("flat") + select(id) + focus(id)`: the flat `Timeline` then centres on the event via its
+existing init-centre path ([Timeline.tsx:228](src/components/Timeline.tsx)) on mount and the
+`centerId`/`centerKey` scrub. Returning to the overview is the existing View toggle (no separate
+"zoom out" button needed). Deep-link `?event=` updates as normal.
+
+**Branch zoom.** Decided (user): stepped **+ / − zoom controls** (not fit-to-width). `buildTimeScale`
+and `buildBranchLayout` now take an optional `pxPerYear`; [BranchTimeline](src/components/BranchTimeline.tsx)
+holds a `zoom` multiplier (×`PX_PER_YEAR`, clamped 0.45–3, step 1.3) and recomputes the layout. Only
+the x (time) axis stretches — discs stay a fixed pixel size. A floating top-right control shows
+`−  NN%  +`; clicking the percentage resets to 100%. Zoom **preserves the viewport-centre point**:
+the centred content-fraction is captured before the scale change and the matching `scrollLeft`
+restored in a `useLayoutEffect` after the new track lays out. Pan remains native scroll.
+
+Verified: build + lint + typecheck clean; preview at desktop and 390px phone width — zoom in/out
+(focal point held), the bridge round-trip (CUDA node → flat view scrubbed to Jun 2007), and the
+button's absence in flat view all confirmed; no console errors.
+
+## 11. Stage 3 — density & vertical-fit refinements (user feedback)
+
+After Stage 3 landed, the full dataset (104 events → 13 lanes + a large field line) read as too
+dense and too tall. Three fixes:
+
+- **Node fanning (the deferred §8 caveat, now done).** `fanLevel` moved to [layout.ts](src/components/layout.ts)
+  (shared with the flat view, no duplication) plus `BRANCH_MIN_GAP`/`BRANCH_FAN_STEP`/`BRANCH_FAN_MAX`.
+  [branchLayout.ts](src/components/branchLayout.ts) gained a pure `fanLine()` that fans any date-sorted
+  run (each lane *and* the field line): consecutive nodes closer than `BRANCH_MIN_GAP` in x step
+  alternately above/below (`±22px`/level) so discs stop overlapping. Each `Lane` now carries `nodes`
+  (x-sorted with `yOffset`) plus `fanUp`/`fanDown` extents. Because fan x-gaps are measured at the
+  *zoomed* scale, fanning recomputes with zoom. The fan saturates at `±BRANCH_FAN_MAX` (3) levels so a
+  very dense cluster — or a zoomed-*out* overview, where everything bunches — can't blow lane height
+  open (zoom-out content height dropped 1536→1272px after the cap).
+- **Variable-height lanes + left labels (vertical fit).** Fixed `ROW_H` replaced by cumulative
+  stacking: each lane reserves only `NODE_R + fan` room, so sparse lanes stay compact and only dense
+  lanes grow. Org labels moved from *above* the head node to the *left* of it (right-anchored, on the
+  lane line), removing the per-lane caption row that previously forced ~72px pitch regardless of
+  density.
+- **Sticky year axis + bounded stage.** The date ruler is now a `position: sticky; bottom: 0` strip
+  inside the scroll container — always visible no matter how tall the stack gets, while still panning
+  horizontally with the track. The stage is capped at `78vh` so it never dominates the page; overflow
+  is internal scroll.
+
+## 12. Flagship filter (user's #2 — built)
+
+Even compressed, 13 lanes + the field overflow one screen at 100% with all 104 events. The fix is a
+"main events only, expand from there" filter. Decided (user): a **curated flag**, with a **global
+toggle + per-lane expand**.
+
+- **Data.** Added optional `flagship?: boolean` to [TimelineEvent](src/data/types.ts), parsed in
+  [getAllEvents](src/data/getAllEvents.ts) (`data.flagship === true`). **32 landmark events** tagged
+  `flagship: true` in their frontmatter — curated so every lane keeps coverage in flagship mode
+  (foundations, each lab's defining models, the merge/sunset structural events, key research / infra /
+  governance milestones). Flat view ignores the flag entirely.
+- **Filter is render-time, structure is stable.** `buildBranchLayout` now derives lanes/edges/field
+  membership and line extents from the **full** set (so the genealogy never reshapes with the filter);
+  `fanLine` is exported and re-run on the **visible** subset by a pure `layoutGeometry()` in
+  [BranchTimeline](src/components/BranchTimeline.tsx), which fans each lane/field on what's shown and
+  stacks variable heights accordingly.
+- **UX.** `flagshipOnly` lives in [App](src/App.tsx), **defaults on** for the lineage overview, and
+  has a "Show: Flagship / All events" segmented control in [Controls](src/components/Controls.tsx)
+  (branch-only, mirroring the flat-only Spacing control). Each lane's left label doubles as the
+  expand control — a `+N` badge (collapsed) / `− less` (expanded) toggles a per-lane override held in
+  `BranchTimeline` (persists across flagship on/off). The field line's label expands the field the
+  same way.
+
+Verified: flagship default shows 32 nodes (content 1074→726px, ≈ fits a laptop stage); per-lane
+expand (OpenAI 32→51) and collapse; "All events" → 104 with no badges; toggle round-trips; build +
+lint + typecheck clean; no console errors.
+
+## 13. Lane ordering — edge-span minimisation (user feedback)
+
+The chronological-seed + merge-only clustering left spinout/acquisition/absorb edges long: worst was
+Mistral, whose spinout parents (DeepMind, Meta) sat **9 and 7 rows away**. Replaced with a proper
+`orderLanes()` ([branchLayout.ts](src/components/branchLayout.ts)) that minimises **total weighted
+edge span**:
+
+1. Edges are weighted by kind via `EDGE_PULL` — births (spinout/merge) pull at 1, soft mid-life/
+   sunset edges (acquisition/absorb) at 0.6 so they bend rather than dominate.
+2. **Best-reinsertion local search**: seeded chronologically by lane head, each lane is lifted out
+   and reinserted at its lowest-cost slot until no move improves. Cost = weighted span (×1000) +
+   chronological deviation (sub-unit tie-break, so free orderings keep a time feel).
+3. **Components placed chronologically.** Connected components are ordered internally by the search,
+   then whole components are sorted by their earliest member — otherwise a glued pair the single-move
+   search can't relocate (Microsoft↔Inflection) drifts to an arbitrary slot.
+4. `laneOrderHint` (registry) remains a hard manual override applied last, for any case the optimiser
+   doesn't arrange to taste.
+
+Result: total weighted span **11 → 7.2**; every edge now spans ≤2 rows. Order top→bottom: NVIDIA ·
+Google Brain · Google DeepMind · Google · DeepMind · Mistral · Meta · OpenAI · Anthropic · Microsoft
+· Inflection · LangChain · DeepSeek — i.e. DeepMind·Mistral·Meta, OpenAI·Anthropic and
+Microsoft·Inflection all adjacent, the Google cluster tight, read chronologically. (The optimiser
+keeps Google *between* GDM and DeepMind rather than GDM between DeepMind and Google, because sharing
+DeepMind with the tighter Mistral spinout makes that the lower-span choice; a `laneOrderHint` can
+force the alternative if preferred.)
