@@ -7,20 +7,32 @@ import { TOUR } from "./data/tour";
 import type { StrandKey, TimelineEvent } from "./data/types";
 import Timeline from "./components/Timeline";
 import type { TimelineMode } from "./components/Timeline";
+import BranchTimeline from "./components/BranchTimeline";
 import FilterBar from "./components/FilterBar";
 import SearchBar from "./components/SearchBar";
 import Controls from "./components/Controls";
+import type { TimelineView } from "./components/Controls";
 import EventPanel from "./components/EventPanel";
 import TourOverlay from "./components/TourOverlay";
 import { useSelectedEvent } from "./hooks/useSelectedEvent";
 
 export default function App() {
   const [events, setEvents] = useState<TimelineEvent[] | null>(null);
-  const [visible, setVisible] = useState<Set<StrandKey>>(() => new Set(STRAND_KEYS));
+  const [visible, setVisible] = useState<Set<StrandKey>>(
+    () => new Set(STRAND_KEYS),
+  );
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [mode, setMode] = useState<TimelineMode>("date");
-  const [center, setCenter] = useState<{ id: string | null; key: number }>({ id: null, key: 0 });
+  const [view, setView] = useState<TimelineView>("flat");
+  // Global "show flagship only" filter — a curated-highlights focus that both the
+  // flat timeline and the lineage view respect. Off by default so the landing
+  // view shows the full dataset (matching the strand filter's show-all default).
+  const [flagshipOnly, setFlagshipOnly] = useState(false);
+  const [center, setCenter] = useState<{ id: string | null; key: number }>({
+    id: null,
+    key: 0,
+  });
   const [tourIndex, setTourIndex] = useState<number | null>(null);
   const { selectedId, select } = useSelectedEvent();
 
@@ -34,7 +46,22 @@ export default function App() {
     return m;
   }, [events]);
 
-  const focus = useCallback((id: string) => setCenter((c) => ({ id, key: c.key + 1 })), []);
+  const focus = useCallback(
+    (id: string) => setCenter((c) => ({ id, key: c.key + 1 })),
+    [],
+  );
+
+  // Branch→flat bridge (SPEC §4): from a branch view, jump to the flat timeline
+  // scrubbed to this event (and keep it selected). The View toggle returns to the
+  // lineage overview.
+  const showOnTimeline = useCallback(
+    (id: string) => {
+      setView("flat");
+      select(id);
+      focus(id);
+    },
+    [select, focus],
+  );
 
   const filterActive = query.trim().length > 0 || activeTags.length > 0;
 
@@ -43,7 +70,9 @@ export default function App() {
     if (!events) return ids;
     const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
     for (const e of events) {
-      const haystack = [e.title, ...e.tags, ...e.actors].join(" ").toLowerCase();
+      const haystack = [e.title, ...e.tags, ...e.actors]
+        .join(" ")
+        .toLowerCase();
       const textOk = tokens.every((t) => haystack.includes(t));
       const tagsOk = activeTags.every((t) => e.tags.includes(t));
       if (textOk && tagsOk) ids.add(e.id);
@@ -89,7 +118,9 @@ export default function App() {
     });
 
   const toggleTag = (tag: string) =>
-    setActiveTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+    setActiveTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
 
   const clearFilters = () => {
     setQuery("");
@@ -100,7 +131,11 @@ export default function App() {
     if (!events) return;
     const era = ERAS.find((e) => e.key === eraKey);
     const first = era
-      ? events.find((e) => (era.start === null || e.date >= era.start) && (era.end === null || e.date < era.end))
+      ? events.find(
+          (e) =>
+            (era.start === null || e.date >= era.start) &&
+            (era.end === null || e.date < era.end),
+        )
       : undefined;
     if (first) focus(first.id);
   };
@@ -130,90 +165,107 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="min-h-screen bg-paper text-ink">
-      <header className="border-b-2 border-ink px-4 py-6 sm:px-6 sm:py-8">
-        <p className="font-label text-[11px] font-semibold uppercase tracking-[0.16em] text-eyebrow">
-          A Field Guide
-        </p>
-        <h1 className="mt-3 font-display text-4xl font-semibold leading-[1.1] tracking-[-0.022em] text-ink sm:text-6xl">
-          AI Progress Timeline
-        </h1>
-        <p className="mt-3 max-w-xl font-body text-lg italic leading-snug text-secondary sm:text-xl">
-          A multi-strand view of how the field has unfolded.
-        </p>
-      </header>
+      <div className="min-h-screen bg-paper text-ink">
+        <header className="border-b-2 border-ink px-4 py-6 sm:px-6 sm:py-8">
+          <p className="font-label text-[11px] font-semibold uppercase tracking-[0.16em] text-eyebrow">
+            A Field Guide
+          </p>
+          <h1 className="mt-3 font-display text-4xl font-semibold leading-[1.1] tracking-[-0.022em] text-ink sm:text-6xl">
+            AI Progress Timeline
+          </h1>
+          <p className="mt-3 max-w-xl font-body text-lg italic leading-snug text-secondary sm:text-xl">
+            A multi-strand view of how the field has unfolded.
+          </p>
+        </header>
 
-      <FilterBar visible={visible} onToggle={toggleStrand} />
-      <SearchBar
-        query={query}
-        onQuery={setQuery}
-        activeTags={activeTags}
-        onToggleTag={toggleTag}
-        matchCount={matchedIds.size}
-        totalCount={events?.length ?? 0}
-        active={filterActive}
-        onClear={clearFilters}
-      />
-      <Controls
-        mode={mode}
-        onMode={setMode}
-        onJumpEra={jumpEra}
-        onStartTour={() => goStep(0)}
-        tourAvailable={tourSteps.length > 0}
-      />
+        <FilterBar visible={visible} onToggle={toggleStrand} />
+        <SearchBar
+          query={query}
+          onQuery={setQuery}
+          activeTags={activeTags}
+          onToggleTag={toggleTag}
+          matchCount={matchedIds.size}
+          totalCount={events?.length ?? 0}
+          active={filterActive}
+          onClear={clearFilters}
+        />
+        <Controls
+          view={view}
+          onView={setView}
+          mode={mode}
+          onMode={setMode}
+          flagshipOnly={flagshipOnly}
+          onFlagshipOnly={setFlagshipOnly}
+          onJumpEra={jumpEra}
+          onStartTour={() => goStep(0)}
+          tourAvailable={tourSteps.length > 0}
+        />
 
-      <main className="p-3 sm:p-6">
-        {!events ? (
-          <p className="text-muted">Loading events…</p>
-        ) : (
-          <Timeline
-            events={events}
-            visibleStrands={visible}
-            selectedId={selectedId}
-            onSelect={select}
-            matchedIds={matchedIds}
-            filterActive={filterActive}
-            mode={mode}
-            centerId={center.id}
-            centerKey={center.key}
-          />
-        )}
-      </main>
+        <main className="p-3 sm:p-6">
+          {!events ? (
+            <p className="text-muted">Loading events…</p>
+          ) : view === "branch-org" ? (
+            <BranchTimeline
+              events={events}
+              visibleStrands={visible}
+              selectedId={selectedId}
+              onSelect={select}
+              matchedIds={matchedIds}
+              filterActive={filterActive}
+              flagshipOnly={flagshipOnly}
+            />
+          ) : (
+            <Timeline
+              events={events}
+              visibleStrands={visible}
+              selectedId={selectedId}
+              onSelect={select}
+              matchedIds={matchedIds}
+              filterActive={filterActive}
+              mode={mode}
+              flagshipOnly={flagshipOnly}
+              centerId={center.id}
+              centerKey={center.key}
+            />
+          )}
+        </main>
 
-      <footer className="border-t border-hairline px-4 py-6 sm:px-6">
-        <p className="max-w-2xl font-body text-xs leading-relaxed text-muted">
-          All product names, logos, and brands are property of their respective owners.
-          Logos are used here for identification and editorial purposes only; this site is
-          not affiliated with, endorsed by, or sponsored by any of them.
-        </p>
-      </footer>
+        <footer className="border-t border-hairline px-4 py-6 sm:px-6">
+          <p className="max-w-2xl font-body text-xs leading-relaxed text-muted">
+            All product names, logos, and brands are property of their
+            respective owners. Logos are used here for identification and
+            editorial purposes only; this site is not affiliated with, endorsed
+            by, or sponsored by any of them.
+          </p>
+        </footer>
 
-      <EventPanel
-        event={selected}
-        related={related}
-        activeTags={activeTags}
-        onToggleTag={toggleTag}
-        onClose={() => {
-          select(null);
-          exitTour();
-        }}
-        onSelect={select}
-      />
+        <EventPanel
+          event={selected}
+          related={related}
+          activeTags={activeTags}
+          onToggleTag={toggleTag}
+          onClose={() => {
+            select(null);
+            exitTour();
+          }}
+          onSelect={select}
+          onShowOnTimeline={view !== "flat" ? showOnTimeline : undefined}
+        />
 
-      <AnimatePresence>
-        {tourEvent && tourIndex !== null && (
-          <TourOverlay
-            event={tourEvent}
-            note={tourStep?.note}
-            index={tourIndex}
-            total={tourSteps.length}
-            onPrev={prevStep}
-            onNext={nextStep}
-            onExit={exitTour}
-          />
-        )}
-      </AnimatePresence>
-    </div>
+        <AnimatePresence>
+          {tourEvent && tourIndex !== null && (
+            <TourOverlay
+              event={tourEvent}
+              note={tourStep?.note}
+              index={tourIndex}
+              total={tourSteps.length}
+              onPrev={prevStep}
+              onNext={nextStep}
+              onExit={exitTour}
+            />
+          )}
+        </AnimatePresence>
+      </div>
     </MotionConfig>
   );
 }

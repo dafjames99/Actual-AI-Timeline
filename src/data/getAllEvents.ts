@@ -34,24 +34,41 @@ function parseFile(path: string, raw: string): TimelineEvent | null {
   try {
     data = (yaml.load(frontmatter) ?? {}) as Record<string, unknown>;
   } catch (err) {
-    console.warn(`[events] ${path}: failed to parse frontmatter — skipping`, err);
+    console.warn(
+      `[events] ${path}: failed to parse frontmatter — skipping`,
+      err,
+    );
     return null;
   }
 
   // Required fields. Anything missing means the event is unusable; warn + skip.
-  const required = ["id", "title", "date", "strand", "summary", "significance", "source_url"];
+  const required = [
+    "id",
+    "title",
+    "date",
+    "strand",
+    "summary",
+    "significance",
+    "source_url",
+  ];
   const missing = required.filter((k) => !data[k]);
   if (missing.length > 0) {
-    console.warn(`[events] ${path}: missing required field(s): ${missing.join(", ")} — skipping`);
+    console.warn(
+      `[events] ${path}: missing required field(s): ${missing.join(", ")} — skipping`,
+    );
     return null;
   }
 
   if (!isStrandKey(data.strand)) {
-    console.warn(`[events] ${path}: unknown strand "${String(data.strand)}" — skipping`);
+    console.warn(
+      `[events] ${path}: unknown strand "${String(data.strand)}" — skipping`,
+    );
     return null;
   }
 
-  const bodyHtml = body.trim() ? (marked.parse(body.trim(), { async: false }) as string) : undefined;
+  const bodyHtml = body.trim()
+    ? (marked.parse(body.trim(), { async: false }) as string)
+    : undefined;
 
   return {
     id: String(data.id),
@@ -66,6 +83,7 @@ function parseFile(path: string, raw: string): TimelineEvent | null {
     image_url: data.image_url ? String(data.image_url) : undefined,
     related_ids: data.related_ids ? toStringArray(data.related_ids) : undefined,
     body: bodyHtml,
+    flagship: data.flagship === true,
   };
 }
 
@@ -88,7 +106,10 @@ export async function getAllEvents(): Promise<TimelineEvent[]> {
   // Guard against duplicate ids, which would break deep-linking / related_ids.
   const seen = new Set<string>();
   for (const e of events) {
-    if (seen.has(e.id)) console.warn(`[events] duplicate id "${e.id}" — deep-links may be ambiguous`);
+    if (seen.has(e.id))
+      console.warn(
+        `[events] duplicate id "${e.id}" — deep-links may be ambiguous`,
+      );
     seen.add(e.id);
   }
 

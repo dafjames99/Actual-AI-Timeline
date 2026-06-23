@@ -22,4 +22,5 @@ export interface TimelineEvent {
   image_url?: string; // optional thumbnail
   related_ids?: string[]; // optional cross-links to other events
   body?: string; // rendered HTML from the Markdown body, if present
+  flagship?: boolean; // landmark event — shown when the lineage view is in "flagship only" mode
 }

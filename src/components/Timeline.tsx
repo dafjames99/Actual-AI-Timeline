@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { scaleTime } from "d3-scale";
-import { timeYear } from "d3-time";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { timeFormat } from "d3-time-format";
 import type { StrandKey, TimelineEvent } from "../data/types";
 import { STRANDS } from "../data/strands";
@@ -12,26 +17,33 @@ import {
   DOT_R,
   EVEN_SPACING,
   FAN_STEP,
+  fanLevel,
   ICON_GLYPH,
   ICON_NODE_R,
   LINE_WEIGHT,
   POPUP_THRESHOLD,
-  PX_PER_YEAR,
   STAGE_MIN_HEIGHT,
   TRACK_PAD,
   STAGE_HEIGHT,
-  ACTIVE_Y_OFFSET
+  ACTIVE_Y_OFFSET,
 } from "./layout";
+import { buildTimeScale } from "./timeScale";
+import type { Tick } from "./timeScale";
 import { NodeIcon } from "./NodeIcon";
 import { resolveNodeIcon } from "./nodeIconResolver";
 
 export type TimelineMode = "date" | "even";
 
-const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
-const formatYear = timeFormat("%Y");
 const formatCentre = timeFormat("%b %Y");
 
-const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
+const clamp = (v: number, lo: number, hi: number) =>
+  v < lo ? lo : v > hi ? hi : v;
+
+// Same-date events share an exact x, which the 1D playhead can't tell apart —
+// keyboard stepping stalls on the pair and only the first ever blooms. Spread
+// coincident nodes a hair apart so every node has a unique x (they stay fanned
+// vertically; the few-px shift is imperceptible on a multi-year axis).
+const COINCIDENT_NUDGE = 2;
 
 interface TimelineProps {
   events: TimelineEvent[];
@@ -41,6 +53,7 @@ interface TimelineProps {
   matchedIds: Set<string>;
   filterActive: boolean;
   mode: TimelineMode;
+  flagshipOnly: boolean; // global focus filter — show only landmark events
   centerId: string | null; // event/era target to scrub to centre
   centerKey: number; // bump to re-trigger the scrub even for the same id
 }
@@ -50,21 +63,11 @@ interface Placed {
   x: number; // position along the track (px)
   yOffset: number; // fan offset off the baseline for near-collisions
 }
-interface Tick {
-  x: number;
-  label: string;
-}
 interface Band {
   key: string;
   colour: string;
   left: number;
   right: number;
-}
-
-// Fan level for the k-th member of a dense cluster: 0, +1, -1, +2, -2, …
-function fanLevel(k: number): number {
-  if (k === 0) return 0;
-  return k % 2 === 1 ? Math.ceil(k / 2) : -k / 2;
 }
 
 export default function Timeline({
@@ -75,16 +78,16 @@ export default function Timeline({
   matchedIds,
   filterActive,
   mode,
+  flagshipOnly,
   centerId,
   centerKey,
 }: TimelineProps) {
   // --- Track geometry (positions are stable regardless of strand filtering) ---
   const layout = useMemo(() => {
-    if (events.length === 0) return null;
-    const times = events.map((e) => new Date(e.date).getTime());
-    const pad = YEAR_MS / 3;
-    const d0 = new Date(Math.min(...times) - pad);
-    const d1 = new Date(Math.max(...times) + pad);
+    // The flagship filter recomputes positions (unlike the strand filter, which
+    // only hides dots) so the remaining landmark events space out across the track.
+    const evs = flagshipOnly ? events.filter((e) => e.flagship) : events;
+    if (evs.length === 0) return null;
 
     let trackWidth: number;
     let xOf: (e: TimelineEvent) => number;
@@ -93,23 +96,22 @@ export default function Timeline({
     let ticks: Tick[];
 
     if (mode === "date") {
-      const years = (d1.getTime() - d0.getTime()) / YEAR_MS;
-      trackWidth = Math.round(years * PX_PER_YEAR) + TRACK_PAD * 2;
-      const scale = scaleTime().domain([d0, d1]).range([TRACK_PAD, trackWidth - TRACK_PAD]);
-      xOf = (e) => scale(new Date(e.date));
-      dateAtX = (x) => scale.invert(x);
-      xOfDate = (d) => scale(d);
-      ticks = scale.ticks(timeYear).map((t) => ({ x: scale(t), label: formatYear(t) }));
+      const ts = buildTimeScale(evs);
+      trackWidth = ts.trackWidth;
+      xOf = ts.xOf;
+      dateAtX = ts.dateAtX;
+      xOfDate = ts.xOfDate;
+      ticks = ts.ticks;
     } else {
-      const n = events.length;
+      const n = evs.length;
       trackWidth = (n - 1) * EVEN_SPACING + TRACK_PAD * 2;
-      const idx = new Map(events.map((e, i) => [e.id, i]));
+      const idx = new Map(evs.map((e, i) => [e.id, i]));
       xOf = (e) => TRACK_PAD + (idx.get(e.id) ?? 0) * EVEN_SPACING;
       dateAtX = null;
       xOfDate = null;
       ticks = [];
       let lastYear = "";
-      for (const e of events) {
+      for (const e of evs) {
         const y = e.date.slice(0, 4);
         if (y !== lastYear) {
           ticks.push({ x: xOf(e), label: y });
@@ -119,44 +121,72 @@ export default function Timeline({
     }
 
     // Place events left→right, fanning consecutive near-collisions off the line.
-    const ordered = [...events].sort((a, b) => xOf(a) - xOf(b));
+    // Fan level is decided on the true (date) x; the stored x is nudged so exact
+    // same-date ties become distinct, keeping each node addressable by the playhead.
+    const ordered = [...evs].sort((a, b) => xOf(a) - xOf(b));
     const placed: Placed[] = [];
     let prevX = -Infinity;
+    let prevPlacedX = -Infinity;
     let k = 0;
     for (const e of ordered) {
       const x = xOf(e);
       k = x - prevX < DOT_MIN_GAP ? k + 1 : 0;
-      placed.push({ e, x, yOffset: fanLevel(k) * FAN_STEP });
+      const px = Math.max(x, prevPlacedX + COINCIDENT_NUDGE);
+      placed.push({ e, x: px, yOffset: fanLevel(k) * FAN_STEP });
       prevX = x;
+      prevPlacedX = px;
     }
     const posById = new Map(placed.map((p) => [p.e.id, p]));
 
     // Era line segments: span each present era's events, tiled at midpoints.
     const present = ERAS.map((era) => {
-      const xs = events.filter((e) => eraOf(e.date).key === era.key).map(xOf);
-      return xs.length ? { era, min: Math.min(...xs), max: Math.max(...xs) } : null;
-    }).filter((p): p is { era: (typeof ERAS)[number]; min: number; max: number } => p !== null);
+      const xs = evs.filter((e) => eraOf(e.date).key === era.key).map(xOf);
+      return xs.length
+        ? { era, min: Math.min(...xs), max: Math.max(...xs) }
+        : null;
+    }).filter(
+      (p): p is { era: (typeof ERAS)[number]; min: number; max: number } =>
+        p !== null,
+    );
 
     const bands: Band[] = present.map((p, i) => {
       if (xOfDate) {
         const left = i === 0 ? 0 : xOfDate(new Date(p.era.start!));
-        const right = i === present.length - 1 ? trackWidth : xOfDate(new Date(present[i + 1].era.start!));
+        const right =
+          i === present.length - 1
+            ? trackWidth
+            : xOfDate(new Date(present[i + 1].era.start!));
         return {
-          key: p.era.key, colour: p.era.colour, left: clamp(left, 0, trackWidth), right: clamp(right, 0, trackWidth)
-        }
+          key: p.era.key,
+          colour: p.era.colour,
+          left: clamp(left, 0, trackWidth),
+          right: clamp(right, 0, trackWidth),
+        };
       }
       return {
         key: p.era.key,
         colour: p.era.colour,
         left: i === 0 ? 0 : (present[i - 1].max + p.min) / 2,
-        right: i === present.length - 1 ? trackWidth : (p.max + present[i + 1].min) / 2,
-      }
+        right:
+          i === present.length - 1
+            ? trackWidth
+            : (p.max + present[i + 1].min) / 2,
+      };
     });
 
     const firstX = placed[0].x;
     const lastX = placed[placed.length - 1].x;
-    return { trackWidth, dateAtX, ticks, placed, posById, bands, firstX, lastX };
-  }, [events, mode]);
+    return {
+      trackWidth,
+      dateAtX,
+      ticks,
+      placed,
+      posById,
+      bands,
+      firstX,
+      lastX,
+    };
+  }, [events, mode, flagshipOnly]);
 
   // --- Stage measurement ---
   const stageRef = useRef<HTMLDivElement>(null);
@@ -218,10 +248,15 @@ export default function Timeline({
         const dt = Math.min(40, now - last);
         last = now;
         v *= Math.pow(0.9, dt / 16);
-        const next = clamp(centerXRef.current + v * dt, bounds.current.min, bounds.current.max);
+        const next = clamp(
+          centerXRef.current + v * dt,
+          bounds.current.min,
+          bounds.current.max,
+        );
         commit(next);
         const atEdge = next <= bounds.current.min || next >= bounds.current.max;
-        if (Math.abs(v) > 0.015 && !atEdge) raf.current = requestAnimationFrame(tick);
+        if (Math.abs(v) > 0.015 && !atEdge)
+          raf.current = requestAnimationFrame(tick);
       };
       if (Math.abs(v0) > 0.015) raf.current = requestAnimationFrame(tick);
     },
@@ -240,7 +275,8 @@ export default function Timeline({
   useEffect(() => {
     if (inited.current || !layout || stage.w === 0) return;
     inited.current = true;
-    const target = (selectedId && layout.posById.get(selectedId)?.x) || layout.firstX;
+    const target =
+      (selectedId && layout.posById.get(selectedId)?.x) || layout.firstX;
     commit(target);
   }, [layout, stage.w, selectedId, commit]);
 
@@ -255,7 +291,8 @@ export default function Timeline({
 
   // Events on visible strands (positions are stable; filtering only hides dots).
   const shown = useMemo(
-    () => (layout ? layout.placed.filter((p) => visibleStrands.has(p.e.strand)) : []),
+    () =>
+      layout ? layout.placed.filter((p) => visibleStrands.has(p.e.strand)) : [],
     [layout, visibleStrands],
   );
   const shownRef = useRef(shown);
@@ -264,9 +301,11 @@ export default function Timeline({
   }, [shown]);
 
   // --- Drag / scrub gesture (shared by the whole stage, incl. the dial) ---
-  const drag = useRef<{ id: number; lastX: number; samples: { x: number; t: number }[] } | null>(
-    null,
-  );
+  const drag = useRef<{
+    id: number;
+    lastX: number;
+    samples: { x: number; t: number }[];
+  } | null>(null);
   const wasDrag = useRef(false);
 
   // Which event dot (if any) sits under a pointer — used for reliable tap-select,
@@ -296,7 +335,11 @@ export default function Timeline({
     cancelAnim();
     wasDrag.current = false;
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    drag.current = { id: e.pointerId, lastX: e.clientX, samples: [{ x: e.clientX, t: e.timeStamp }] };
+    drag.current = {
+      id: e.pointerId,
+      lastX: e.clientX,
+      samples: [{ x: e.clientX, t: e.timeStamp }],
+    };
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
@@ -366,7 +409,7 @@ export default function Timeline({
     }
   };
 
-  // 
+  //
   useEffect(() => {
     if (!selectedId && stageRef.current) {
       stageRef.current.focus();
@@ -380,7 +423,10 @@ export default function Timeline({
 
   if (!layout) {
     return (
-      <div className="border border-ink bg-panel p-6 text-muted" style={{ minHeight: STAGE_MIN_HEIGHT }}>
+      <div
+        className="border border-ink bg-panel p-6 text-muted"
+        style={{ minHeight: STAGE_MIN_HEIGHT }}
+      >
         No events to show.
       </div>
     );
@@ -396,9 +442,13 @@ export default function Timeline({
       : nearest
         ? new Date(nearest.p.e.date)
         : null;
-  const centreEraColour = centreDate ? eraOf(centreDate.toISOString().slice(0, 10)).colour : "#94897a";
+  const centreEraColour = centreDate
+    ? eraOf(centreDate.toISOString().slice(0, 10)).colour
+    : "#94897a";
   const activeEraIndex = centreDate
-    ? ERAS.findIndex((e) => e.key === eraOf(centreDate.toISOString().slice(0, 10)).key)
+    ? ERAS.findIndex(
+        (e) => e.key === eraOf(centreDate.toISOString().slice(0, 10)).key,
+      )
     : 0;
   const popup = nearest && nearest.dist <= POPUP_THRESHOLD ? nearest.p : null;
   const popupLabel = popup ? resolveNodeIcon(popup.e).label : "";
@@ -445,7 +495,10 @@ export default function Timeline({
         {/* Moving track: era line + event dots + the centred title card. */}
         <div
           className="absolute left-0 top-0 h-full will-change-transform"
-          style={{ width: layout.trackWidth, transform: `translateX(${translateX}px)` }}
+          style={{
+            width: layout.trackWidth,
+            transform: `translateX(${translateX}px)`,
+          }}
         >
           {/* Era-coloured baseline segments */}
           {layout.bands.map((b) => (
@@ -497,7 +550,12 @@ export default function Timeline({
                     className="absolute z-[1] flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-ink transition-[width,height,top] duration-150"
                     style={{
                       left: p.x,
-                      top: p.yOffset === 0 ? dotY : dotY + ACTIVE_Y_OFFSET,
+                      top:
+                        p.yOffset === 0
+                          ? dotY
+                          : p.yOffset > 0
+                            ? dotY + ACTIVE_Y_OFFSET
+                            : dotY - ACTIVE_Y_OFFSET,
                       width: ICON_NODE_R * 2,
                       height: ICON_NODE_R * 2,
                       backgroundColor: "var(--color-panel)",
@@ -538,11 +596,18 @@ export default function Timeline({
             <div
               key={popup.e.id}
               className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full"
-              style={{ left: popup.x, top: lineY + Math.min(0, popup.yOffset) - ICON_NODE_R - 10 }}
+              style={{
+                left: popup.x,
+                top: lineY + Math.min(0, popup.yOffset) - ICON_NODE_R - 10,
+              }}
             >
               <div className="animate-[pop_180ms_ease-out] whitespace-nowrap rounded-lg border border-ink bg-ink px-3 py-1.5 text-center shadow-lg">
                 <div className="flex items-center justify-center gap-1.5">
-                  <NodeIcon event={popup.e} size={14} color="var(--color-paper)" />
+                  <NodeIcon
+                    event={popup.e}
+                    size={14}
+                    color="var(--color-paper)"
+                  />
                   <div className="font-display text-sm font-semibold leading-tight text-paper">
                     {popup.e.title}
                   </div>
@@ -565,7 +630,10 @@ export default function Timeline({
           className="pointer-events-none absolute top-0 z-0 -translate-x-1/2"
           style={{ left: "50%", height: lineArea }}
         >
-          <div className="mx-auto h-full w-px" style={{ backgroundColor: centreEraColour, opacity: 0.5 }} />
+          <div
+            className="mx-auto h-full w-px"
+            style={{ backgroundColor: centreEraColour, opacity: 0.5 }}
+          />
         </div>
         <div
           className="pointer-events-none absolute z-20 -translate-x-1/2"
@@ -586,12 +654,21 @@ export default function Timeline({
         >
           <div
             className="absolute left-0 top-0 h-full will-change-transform"
-            style={{ width: layout.trackWidth, transform: `translateX(${translateX}px)` }}
+            style={{
+              width: layout.trackWidth,
+              transform: `translateX(${translateX}px)`,
+            }}
           >
             {layout.ticks.map((t, i) => (
-              <div key={`${t.label}-${i}`} className="absolute top-0 -translate-x-1/2" style={{ left: t.x }}>
+              <div
+                key={`${t.label}-${i}`}
+                className="absolute top-0 -translate-x-1/2"
+                style={{ left: t.x }}
+              >
                 <div className="mx-auto h-3 w-px bg-edge" />
-                <div className="mt-1 font-mono text-[10px] text-muted">{t.label}</div>
+                <div className="mt-1 font-mono text-[10px] text-muted">
+                  {t.label}
+                </div>
               </div>
             ))}
           </div>

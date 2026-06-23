@@ -24,9 +24,10 @@ import type { SimpleIcon } from "simple-icons";
  * A brand with neither falls back to the strand glyph. Logos are used editorially,
  * for identification only — see the disclosure in the app footer.
  *
- * NOTE: the genealogy fields the branch view needs (founded / parents / …) are
- * deliberately NOT here yet; they're added when SPEC-branching-org-genealogy
- * implementation starts.
+ * Genealogy fields (founded / parents / …) drive the org-genealogy branch view
+ * (SPEC-branching-org-genealogy §4). All optional and curate-once. Stage 1
+ * populates `founded` only; the edge-driving fields (parents/relation/becomes/
+ * dissolved) land in Stage 2 alongside the bézier edges.
  */
 export interface BrandMark {
   viewBox: string; // the mark's own coordinate space, e.g. "0 0 16 16"
@@ -39,6 +40,18 @@ export interface Brand {
   aliases: string[]; // actor strings (case-insensitive) that resolve to this brand
   icon?: SimpleIcon; // simple-icons mark (tree-shaken via static named import)
   mark?: BrandMark; // inline self-hosted mark, for brands not in simple-icons
+
+  // --- genealogy (SPEC-branching-org-genealogy §4); all optional, curate-once ---
+  founded?: string; // ISO; lane start (source of truth, not events)
+  colour?: string; // lane colour in branch view
+  parents?: string[]; // brand keys this was born from (spinout/merge)
+  relation?: "spinout" | "merge"; // style of the BIRTH edge from `parents`
+  becomes?: { into: string; date: string }; // lane end → target (merge/absorb)
+  acquired?: { by: string; date: string }; // mid-life acquisition (soft edge) —
+  // an extension beyond the spec's birth/death model: DeepMind kept running after
+  // Google acquired it in 2014, which `parents`/`becomes` can't place at the right date.
+  dissolved?: string; // ISO; lane end if not via `becomes`
+  laneOrderHint?: number; // optional manual nudge for vertical ordering
 }
 
 // OpenAI "Blossom" logomark — Bootstrap Icons rendition (MIT). Used editorially.
@@ -53,24 +66,60 @@ const MICROSOFT_MARK: BrandMark = {
   path: "M0 0h10v10H0z M11 0h10v10H11z M0 11h10v10H0z M11 11h10v10H11z",
 };
 
+// Founding dates are sourced lane-start anchors; an org whose founding predates
+// the event window (e.g. NVIDIA 1993, Google 1998) is left without `founded` so
+// its lane simply starts at its first event (handled in BranchTimeline). Splitting
+// `google` into Brain / DeepMind / Google-DeepMind lanes is deferred to Stage 2.
 export const BRANDS: Brand[] = [
   // Removed from simple-icons (trademark requests) — inline self-hosted marks.
-  { key: "openai", label: "OpenAI", aliases: ["openai"], mark: OPENAI_MARK },
+  { key: "openai", label: "OpenAI", aliases: ["openai"], mark: OPENAI_MARK, founded: "2015-12-11" },
   { key: "microsoft", label: "Microsoft", aliases: ["microsoft"], mark: MICROSOFT_MARK },
 
-  { key: "anthropic", label: "Anthropic", aliases: ["anthropic"], icon: siAnthropic },
   {
-    key: "google",
-    label: "Google",
-    aliases: ["google", "google brain", "google research", "google deepmind"],
-    icon: siGoogle,
+    key: "anthropic",
+    label: "Anthropic",
+    aliases: ["anthropic"],
+    icon: siAnthropic,
+    founded: "2021-01-01",
+    parents: ["openai"], // founded by departing OpenAI researchers
+    relation: "spinout",
   },
-  { key: "deepmind", label: "DeepMind", aliases: ["deepmind"], icon: siDeepmind },
+  // Google lineage, split into three lanes so the 2023 merger reads as an
+  // interchange: Google Brain + DeepMind → Google DeepMind. Generic `google`
+  // remains for Google work that isn't one of those org lines.
+  { key: "google", label: "Google", aliases: ["google"], icon: siGoogle },
+  {
+    key: "google-brain",
+    label: "Google Brain",
+    aliases: ["google brain", "google research"],
+    icon: siGoogle,
+    founded: "2011-06-01",
+    becomes: { into: "google-deepmind", date: "2023-04-20" },
+  },
+  {
+    key: "deepmind",
+    label: "DeepMind",
+    aliases: ["deepmind"],
+    icon: siDeepmind,
+    founded: "2010-09-23",
+    acquired: { by: "google", date: "2014-01-26" },
+    becomes: { into: "google-deepmind", date: "2023-04-20" },
+  },
+  {
+    key: "google-deepmind",
+    label: "Google DeepMind",
+    aliases: ["google deepmind"],
+    icon: siGoogle,
+    founded: "2023-04-20",
+    parents: ["google-brain", "deepmind"],
+    relation: "merge",
+  },
   {
     key: "meta",
     label: "Meta",
     aliases: ["meta", "meta ai", "fair", "facebook ai research"],
     icon: siMeta,
+    founded: "2013-12-09", // FAIR founded Dec 2013
   },
   { key: "nvidia", label: "NVIDIA", aliases: ["nvidia"], icon: siNvidia },
   {
@@ -78,12 +127,43 @@ export const BRANDS: Brand[] = [
     label: "Hugging Face",
     aliases: ["hugging face", "huggingface"],
     icon: siHuggingface,
+    founded: "2016-01-01",
   },
-  { key: "mistral", label: "Mistral AI", aliases: ["mistral", "mistral ai"], icon: siMistralai },
-  { key: "deepseek", label: "DeepSeek", aliases: ["deepseek"], icon: siDeepseek },
+  {
+    key: "mistral",
+    label: "Mistral AI",
+    aliases: ["mistral", "mistral ai"],
+    icon: siMistralai,
+    founded: "2023-04-28",
+    parents: ["deepmind", "meta"], // founders came from DeepMind and Meta/FAIR
+    relation: "spinout",
+  },
+  {
+    key: "deepseek",
+    label: "DeepSeek",
+    aliases: ["deepseek"],
+    icon: siDeepseek,
+    founded: "2023-07-17",
+  },
   { key: "qwen", label: "Qwen", aliases: ["qwen", "alibaba", "alibaba cloud"], icon: siQwen },
   { key: "baidu", label: "Baidu", aliases: ["baidu", "ernie"], icon: siBaidu },
-  { key: "langchain", label: "LangChain", aliases: ["langchain"], icon: siLangchain },
+  {
+    key: "langchain",
+    label: "LangChain",
+    aliases: ["langchain"],
+    icon: siLangchain,
+    founded: "2022-10-17",
+  },
+  // Brands without a simple-icons mark fall back to a lettered disc at the lane
+  // head (BranchTimeline). Added here so their genealogy edges can be drawn.
+  { key: "xai", label: "xAI", aliases: ["xai"], founded: "2023-07-12" },
+  {
+    key: "inflection",
+    label: "Inflection AI",
+    aliases: ["inflection ai", "inflection"],
+    founded: "2022-03-01",
+    becomes: { into: "microsoft", date: "2024-03-19" }, // acqui-hired into Microsoft
+  },
 ];
 
 // Lowercase alias → brand, built once at module load.
